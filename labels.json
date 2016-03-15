@@ -1,0 +1,5 @@
+[
+  { "name": "Version: Breaking", "color": "#993366" },
+  { "name": "Version: Feature", "color": "#669933" },
+  { "name": "Version: Fix", "color": "#663399" }
+]
