@@ -7,7 +7,7 @@
     "ava": "0.13.0"
   },
   "scripts": {
-    "docs": "verb",
+    "github-semantic-release": "./bin/release",
     "test": "ava"
   },
   "repository": {
