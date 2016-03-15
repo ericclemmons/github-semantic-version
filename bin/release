@@ -1,0 +1,26 @@
+#!/usr/bin/env node
+
+"use strict";
+
+var meow = require("meow");
+
+var cli = meow([
+  "**Note**: Requires process.env.CI=true",
+  "",
+  "Usage",
+  "  $ release",
+  "",
+  "Options",
+  "  -F, --force  Bypass check for process.env.CI=true",
+  ""
+].join("\n"), {
+  alias: {
+    F: "force"
+  }
+});
+
+if (!process.env.CI && !cli.flags.force) {
+  cli.showHelp();
+
+  throw new Error("Not in CI environement.");
+}
