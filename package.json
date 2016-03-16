@@ -4,7 +4,7 @@
   "description": "Automated semantic version releases powered by Github Issues.",
   "main": "index.js",
   "scripts": {
-    "release": "./bin/release",
+    "release": "./bin/github-semantic-version",
     "test": "printenv"
   },
   "repository": {
