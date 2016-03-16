@@ -72,6 +72,7 @@ without permissions & security issues.
 deploy:
   provider: script
   script: npm run deploy
+  skip_cleanup: true
   on:
     branch: master
 ```
