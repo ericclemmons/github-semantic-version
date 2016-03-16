@@ -90,8 +90,26 @@ var execSync = require("child_process").execSync;
 var util = require("util");
 var range = util.format("%s..HEAD", latestTag || initialCommit);
 
-var prContents = execSync(util.format("git log --merges -n1 --format=%%s %s", range)).toString();
-var prMatches = prContents.match(/Merge pull request #(\d+)/) || [];
+var commitContents = execSync(util.format("git log --merges -n1 --format='%%an|%%en|%%s' %s", range)).toString();
+var commitParts = commitContents.split("\n").filter(Boolean).join("").split("|");
+
+var name = commitParts[0];
+var email = commitParts[1];
+var message = commitParts[2];
+
+var currentUser = execSync("git config user.name")
+  .toString()
+  .split("\n")
+  .filter(Boolean)
+  .pop()
+;
+
+if (!currentUser) {
+  execSync(util.format("git config user.name \"%s\"", name));
+  execSync(util.format("git config user.email \"%s\"", email));
+}
+
+var prMatches = message.match(/Merge pull request #(\d+)/) || [];
 var pr = prMatches[1];
 
 if (!cli.flags.force && !pr) {
