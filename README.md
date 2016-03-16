@@ -69,8 +69,11 @@ without permissions & security issues.
 ### 5. Update `.travis.yml`
 
 ```yaml
-after_success:
-  npm run release
+deploy:
+  provider: script
+  script: npm run deploy
+  on:
+    branch: master
 ```
 
 ### 6. Update `package.json`
@@ -78,8 +81,8 @@ after_success:
 ```json
 {
   "scripts": {
-    "release": "github-semantic-version",
-    "postrelease": "npm publish"
+    "predeploy": "github-semantic-version",
+    "deploy": "npm publish"
   }
 }
 ```
