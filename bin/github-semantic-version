@@ -185,6 +185,6 @@ github.issues.getIssueLabels({
   ).toLowerCase();
 
   console.info("Bumping existing v%s with %s release...", version, bump);
-  execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump));
-  execSync("git push --tags");
+  execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump), { env: process.env });
+  execSync("git push --tags", { env: process.env });
 });
