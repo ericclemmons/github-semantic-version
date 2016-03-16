@@ -142,8 +142,6 @@ if (token) {
   });
 }
 
-pr = 1;
-
 if (!latestTag) {
   console.info("First release! Releasing v%s...", version);
 } else if (pr) {
