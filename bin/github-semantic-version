@@ -186,5 +186,12 @@ github.issues.getIssueLabels({
 
   console.info("Bumping existing v%s with %s release...", version, bump);
   execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump), { env: process.env });
+
+  if (process.env.GH_TOKEN) {
+    var origin = util.format("https://%s:%s@github.com/%s/%s.git", user, process.env.GH_TOKEN, user, repo);
+
+    execSync(util.format("git remote set-url origin %s", origin), { env: process.env }););
+  }
+
   execSync("git push --tags", { env: process.env });
 });
