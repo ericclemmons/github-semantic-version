@@ -7,8 +7,8 @@
     "ava": "0.13.0"
   },
   "scripts": {
-    "github-semantic-release": "./bin/release",
     "test": "ava"
+    "release": "./bin/release",
   },
   "repository": {
     "type": "git",
