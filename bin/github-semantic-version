@@ -97,16 +97,9 @@ var name = commitParts[0];
 var email = commitParts[1];
 var message = commitParts[2];
 
-var currentUser = execSync("git config --get user.name", { env: process.env })
-  .toString()
-  .split("\n")
-  .filter(Boolean)
-  .pop()
-;
-
-if (!currentUser) {
-  execSync(util.format("git config user.name \"%s\"", name));
-  execSync(util.format("git config user.email \"%s\"", email));
+if (process.env.CI) {
+  process.env.GIT_AUTHOR_NAME = name;
+  process.env.GIT_AUTHOR_EMAIL = email;
 }
 
 var prMatches = message.match(/Merge pull request #(\d+)/) || [];
