@@ -142,35 +142,34 @@ if (token) {
   });
 }
 
-if (!latestTag) {
-  console.info("First release! Releasing v%s...", version);
-} else if (pr) {
-  github.issues.getIssueLabels({
-    user: user,
-    repo: repo,
-    number: pr
-  }, function(err, labels) {
-    if (err) {
-      throw err;
-    }
-
-    var bump = (labels
-      .map(function(label) {
-        return label.name;
-      })
-      .filter(function(name) {
-        return name.match(/^Version:/);
-      })
-      .map(function(name) {
-        return name.split("Version: ").pop();
-      })
-      .shift() || "patch"
-    ).toLowerCase();
-
-    console.info("Bumping existing v%s with %s release...", version, bump);
-    execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump));
-  });
-} else {
+if (!pr) {
   console.error("No PRs have been merged between %s", range);
   process.exit(1);
 }
+
+github.issues.getIssueLabels({
+  user: user,
+  repo: repo,
+  number: pr
+}, function(err, labels) {
+  if (err) {
+    throw err;
+  }
+
+  var bump = (labels
+    .map(function(label) {
+      return label.name;
+    })
+    .filter(function(name) {
+      return name.match(/^Version:/);
+    })
+    .map(function(name) {
+      return name.split("Version: ").pop();
+    })
+    .shift() || "patch"
+  ).toLowerCase();
+
+  console.info("Bumping existing v%s with %s release...", version, bump);
+  execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump));
+  execSync("git push --tags");
+});
