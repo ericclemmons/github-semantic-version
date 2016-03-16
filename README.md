@@ -15,7 +15,7 @@
 $ npm install --save-dev github-semantic-version
 ```
 
-### 2. Add labels
+### 2. Create labels
 
 ```shell
 $ npm install --save-dev git-labelmaker
@@ -34,8 +34,57 @@ What would you like to do?
 Successfully created 3 labels
 ```
 
-### 3. Assign `Major`, `Minor`, or `Patch` to issues.
+### 3. Update issues
 
+Add one of the following labels to your open PRs:
+
+- `Version: Major`
+- `Version: Minor`
+- `Version: Patch`
+
+As these get merged, `github-semantic-version` will use this to determine
+how to bump the current version.
+
+If any un-tagged commits are pushed to `master` outside of a PR, they're
+automatically treated as `patch` releases.
+
+### 4. Add `GH_TOKEN` & `NPM_TOKEN` to CI
+
+For example, in Travis CI's "Settings" tab for your project, you'll see:
+> ![tokens](tokens.png)
+
+For your `GH_TOKEN` [create one](https://github.com/settings/tokens) with `repo`
+credentials.
+
+You can find `NPM_TOKEN` in your `~/.npmrc` file:
+
+```
+//registry.npmjs.org/:_authToken=${NPM_TOKEN}
+```
+
+Once these are in place, your new versions can be pushed back to Github & NPM
+without permissions & security issues.
+
+### 5. Update `.travis.yml`
+
+```yaml
+after_success:
+  npm run release
+```
+
+### 6. Update `package.json`
+
+```json
+{
+  "scripts": {
+    "release": "github-semantic-version",
+    "postrelease": "npm publish"
+  }
+}
+```
+
+If you're working on an private project, you can leave out `npm publish`, which
+means you have no need for your `NPM_TOKEN` either.
 
 
 ### License
