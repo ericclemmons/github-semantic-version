@@ -185,6 +185,11 @@ github.issues.getIssueLabels({
   ).toLowerCase();
 
   console.info("Bumping existing v%s with %s release...", version, bump);
+
+  if (process.env.NPM_TOKEN) {
+    execSync('echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc');
+  }
+
   execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump), { env: process.env });
 
   if (process.env.GH_TOKEN) {
