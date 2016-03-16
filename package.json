@@ -5,7 +5,6 @@
   "main": "index.js",
   "scripts": {
     "release": "./bin/github-semantic-version && npm publish",
-    "pretest": "printenv",
     "test": "echo master is my test"
   },
   "repository": {
