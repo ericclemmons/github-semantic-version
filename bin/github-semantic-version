@@ -198,5 +198,5 @@ github.issues.getIssueLabels({
     execSync(util.format("git remote set-url origin %s", origin), { env: process.env });
   }
 
-  execSync("git push --tags", { env: process.env });
+  execSync("git push origin master --tags", { env: process.env });
 });
