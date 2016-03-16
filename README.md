@@ -7,6 +7,8 @@
 [![downloads](https://img.shields.io/npm/dm/github-semantic-version.svg)](http://npm-stat.com/charts.html?package=github-semantic-version)
 [![MIT License](https://img.shields.io/npm/l/github-semantic-version.svg)](http://opensource.org/licenses/MIT)
 
+- - -
+
 ## Getting Started
 
 ### 1. Install
@@ -15,13 +17,26 @@
 $ npm install --save-dev github-semantic-version
 ```
 
-### 2. Create labels
+### 2. Add `GH_TOKEN` & `NPM_TOKEN` to CI
+
+For example, in Travis CI's "Settings" tab for your project, you'll see:
+> ![tokens](tokens.png)
+
+For your `GH_TOKEN` [create one in Github](https://github.com/settings/tokens)
+with `repo` credentials.
+
+You can find `NPM_TOKEN` in your `~/.npmrc` file:
+
+```
+//registry.npmjs.org/:_authToken=${NPM_TOKEN}
+```
+
+
+### 3. Create labels
 
 ```shell
 $ npm install --save-dev git-labelmaker
 ```
-
-[Generate a token](https://github.com/settings/tokens).
 
 ```shell
 $ git-labelmaker
@@ -34,7 +49,7 @@ What would you like to do?
 Successfully created 3 labels
 ```
 
-### 3. Update issues
+### 4. Add labels to issues
 
 Add one of the following labels to your open PRs:
 
@@ -45,22 +60,8 @@ Add one of the following labels to your open PRs:
 As these get merged, `github-semantic-version` will use this to determine
 how to bump the current version.
 
-If any un-tagged commits are pushed to `master` outside of a PR, they're
-automatically treated as `patch` releases.
-
-### 4. Add `GH_TOKEN` & `NPM_TOKEN` to CI
-
-For example, in Travis CI's "Settings" tab for your project, you'll see:
-> ![tokens](tokens.png)
-
-For your `GH_TOKEN` [create one](https://github.com/settings/tokens) with `repo`
-credentials.
-
-You can find `NPM_TOKEN` in your `~/.npmrc` file:
-
-```
-//registry.npmjs.org/:_authToken=${NPM_TOKEN}
-```
+_If any un-tagged commits are pushed to `master` outside of a PR, they're
+automatically treated as `patch` releases._
 
 Once these are in place, your new versions can be pushed back to Github & NPM
 without permissions & security issues.
@@ -68,8 +69,11 @@ without permissions & security issues.
 ### 5. Update `.travis.yml`
 
 ```yaml
-after_success:
-  npm run release
+deploy:
+  provider: script
+  script: npm run deploy
+  on:
+    branch: master
 ```
 
 ### 6. Update `package.json`
@@ -77,8 +81,8 @@ after_success:
 ```json
 {
   "scripts": {
-    "release": "github-semantic-version",
-    "postrelease": "npm publish"
+    "predeploy": "github-semantic-version",
+    "deploy": "npm publish"
   }
 }
 ```

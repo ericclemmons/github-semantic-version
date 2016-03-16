@@ -5,5 +5,8 @@ cache:
     - node_modules
 notifications:
   email: false
-after_success:
-  npm run release
+deploy:
+  provider: script
+  script: npm run deploy
+  on:
+    branch: master

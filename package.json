@@ -4,9 +4,9 @@
   "description": "Automated semantic version releases powered by Github Issues.",
   "bin": "bin/github-semantic-version",
   "scripts": {
-    "release": "./bin/github-semantic-version",
-    "postrelease": "npm publish",
-    "test": "echo master is my test"
+    "predeploy": "./bin/github-semantic-version",
+    "deploy": "npm publish",
+    "test": "echo Testing branch=${TRAVIS_BRANCH}"
   },
   "repository": {
     "type": "git",
