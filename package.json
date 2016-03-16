@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/ericclemmons/github-semantic-release#readme",
   "dependencies": {
-    "meow": "3.7.0"
+    "github": "0.2.4",
+    "meow": "^3.7.0"
   }
 }

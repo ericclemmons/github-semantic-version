@@ -2,8 +2,11 @@
 
 "use strict";
 
-var meow = require("meow");
+/**
+ * Setup CLI
+ */
 
+var meow = require("meow");
 var cli = meow([
   "**Note**: Requires process.env.CI=true",
   "",
@@ -19,8 +22,154 @@ var cli = meow([
   }
 });
 
-if (!process.env.CI && !cli.flags.force) {
+if (!cli.flags.force && !process.env.CI) {
+  console.error("Not in CI environement.");
   cli.showHelp();
+  process.exit(1);
+}
 
-  throw new Error("Not in CI environement.");
+/**
+ * Get current branch
+ */
+
+var fs = require("fs");
+var path = require("path");
+
+var headFile = path.join(process.cwd(), ".git", "HEAD");
+var headContents = fs.readFileSync(headFile, "utf8");
+var branchMatches = headContents.match(/ref: refs\/heads\/([^\n]+)/) || [];
+var branch = branchMatches[1];
+
+if (!cli.flags.force && branch !== "master") {
+  console.error("Releases are only allowed from master");
+  process.exit(1);
+}
+
+/**
+ * Get latest tag
+ */
+
+var execSync = require("child_process").execSync;
+var latestTag = execSync("git tag")
+  .toString()
+  .split("\n")
+  .filter(function(tag) {
+    return tag.match(/^v(\d+)\.(\d+)\.(\d)\./);
+  })
+  .pop()
+;
+
+/**
+ * Get latest version
+ */
+
+var pkgContents = fs.readFileSync("package.json", "utf8");
+var pkg = JSON.parse(pkgContents);
+var version = pkg.version;
+
+/**
+ * Get first commit
+ */
+
+var initialCommit = execSync("git log --format=%h --max-parents=0 HEAD")
+  .toString()
+  .split("\n")
+  .filter(Boolean)
+  .pop()
+;
+
+/**
+ * Get latest merge commit
+ */
+
+var execSync = require("child_process").execSync;
+var util = require("util");
+var range = util.format("%s..HEAD", latestTag || initialCommit);
+
+var prContents = execSync(util.format("git log --merges -n1 --format=%%s %s", range)).toString();
+var prMatches = prContents.match(/Merge pull request #(\d+)/) || [];
+var pr = prMatches[1];
+
+if (!cli.flags.force && !pr) {
+  console.error("No PRs have been merged between %s", range);
+  process.exit(1);
+}
+
+/**
+ * Get org/repo from URL
+ */
+
+var urlContents = execSync("git config --get remote.origin.url")
+  .toString()
+  .split("\n")
+  .filter(Boolean)
+  .join("")
+;
+
+var urlMatches = urlContents
+  .replace(".git", "")
+  .split(/\/|:/)
+  .slice(-2)
+;
+
+var user = urlMatches[0];
+var repo = urlMatches[1];
+
+if (!user || !repo) {
+  console.error("Unable to match user/repo in url: %s", urlContents);
+}
+
+/**
+ * Get labels for latest PR
+ */
+
+var GitHubApi = require("github");
+
+var github = new GitHubApi({
+  version: "3.0.0",
+});
+
+var token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+
+if (token) {
+  github.authenticate({
+    token: token,
+    type: "oauth"
+  });
+}
+
+pr = 1;
+
+if (latestTag) {
+  console.info("First release! Releasing %s...", version);
+  execSync(util.format("npm version %s -m 'Automated Release: v%s'", version));
+} else if (pr) {
+  github.issues.getIssueLabels({
+    user: user,
+    repo: repo,
+    number: pr
+  }, function(err, labels) {
+    if (err) {
+      throw err;
+    }
+
+    var bump = (labels
+      .map(function(label) {
+        return label.name;
+      })
+      .filter(function(name) {
+        return name.match(/^Version:/);
+      })
+      .map(function(name) {
+        return name.split("Version: ").pop();
+      })
+      .shift() || "patch"
+    ).toLowerCase();
+
+    console.info("Bumping existing v%s with %s release...", version, bump);
+    execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump));
+  });
+} else {
+  console.error("No PRs have been merged between %s", range);
+  process.exit(1);
 }
