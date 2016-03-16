@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "release": "./bin/github-semantic-version",
-    "postrelease": "printenv && npm publish",
+    "postrelease": "npm publish",
     "test": "echo master is my test"
   },
   "repository": {
