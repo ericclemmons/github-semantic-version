@@ -97,7 +97,7 @@ var name = commitParts[0];
 var email = commitParts[1];
 var message = commitParts[2];
 
-var currentUser = execSync("git config user.name")
+var currentUser = execSync("git config user.name", { env: process.env })
   .toString()
   .split("\n")
   .filter(Boolean)
