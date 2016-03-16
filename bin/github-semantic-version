@@ -146,7 +146,6 @@ pr = 1;
 
 if (!latestTag) {
   console.info("First release! Releasing v%s...", version);
-  execSync(util.format("npm version %s -m 'Automated Release: v%s'", version));
 } else if (pr) {
   github.issues.getIssueLabels({
     user: user,
