@@ -41,7 +41,7 @@ var branchMatches = headContents.match(/ref: refs\/heads\/([^\n]+)/) || [];
 var branch = branchMatches[1];
 
 if (!cli.flags.force && branch !== "master") {
-  console.error("Releases are only allowed from master");
+  console.error("Releases are only allowed from master, not %s", branch);
   process.exit(1);
 }
 
