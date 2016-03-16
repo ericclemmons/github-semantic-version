@@ -1,7 +1,8 @@
 sudo: false
 language: node_js
 cache:
-   apt: true
+  directories:
+    - node_modules
 notifications:
   email: false
 after_success:
