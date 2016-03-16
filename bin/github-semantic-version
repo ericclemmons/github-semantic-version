@@ -156,6 +156,10 @@ github.issues.getIssueLabels({
     throw err;
   }
 
+  if (!labels) {
+    labels = []
+  }
+
   var bump = (labels
     .map(function(label) {
       return label.name;
