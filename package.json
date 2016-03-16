@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "release": "./bin/github-semantic-version",
-    "test": "printenv"
+    "test": "echo master is my test"
   },
   "repository": {
     "type": "git",
