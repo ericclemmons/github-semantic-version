@@ -35,10 +35,14 @@ if (!cli.flags.force && !process.env.CI) {
 var fs = require("fs");
 var path = require("path");
 
-var headFile = path.join(process.cwd(), ".git", "HEAD");
-var headContents = fs.readFileSync(headFile, "utf8");
-var branchMatches = headContents.match(/ref: refs\/heads\/([^\n]+)/) || [];
-var branch = branchMatches[1];
+var branch = process.env.CIRCLE_BRANCH || process.env.TRAVIS_BRANCH;
+
+if (!branch) {
+  var headFile = path.join(process.cwd(), ".git", "HEAD");
+  var headContents = fs.readFileSync(headFile, "utf8");
+  var branchMatches = headContents.match(/ref: refs\/heads\/([^\n]+)/) || [];
+  var branch = branchMatches[1];
+}
 
 if (!cli.flags.force && branch !== "master") {
   console.error("Releases are only allowed from master, not %s", branch);
