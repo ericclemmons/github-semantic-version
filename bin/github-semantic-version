@@ -54,7 +54,7 @@ if (!cli.flags.force && branch !== "master") {
  */
 
 var execSync = require("child_process").execSync;
-var latestTag = execSync("git tag")
+var latestTag = execSync("git fetch --tags && git tag")
   .toString()
   .split("\n")
   .filter(function(tag) {
