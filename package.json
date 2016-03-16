@@ -1,6 +1,6 @@
 {
   "name": "github-semantic-version",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automated semantic version releases powered by Github Issues.",
   "main": "index.js",
   "scripts": {
