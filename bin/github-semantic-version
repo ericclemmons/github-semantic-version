@@ -97,6 +97,11 @@ var name = commitParts[0];
 var email = commitParts[1];
 var message = commitParts[2];
 
+if (process.env.CI) {
+  execSync(util.format("git config user.name \"%s\"", name), { env: process.env });
+  execSync(util.format("git config user.email \"%s\"", email), { env: process.env });
+}
+
 var prMatches = message.match(/Merge pull request #(\d+)/) || [];
 var pr = prMatches[1];
 
@@ -180,12 +185,6 @@ github.issues.getIssueLabels({
   ).toLowerCase();
 
   console.info("Bumping existing v%s with %s release...", version, bump);
-  execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump), {
-    env: {
-      GIT_AUTHOR_NAME: name,
-      GIT_AUTHOR_EMAIL: email,
-      PATH: process.env.PATH
-    }
-  });
+  execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump));
   execSync("git push --tags");
 });
