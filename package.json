@@ -1,5 +1,5 @@
 {
-  "name": "github-semantic-release",
+  "name": "github-semantic-version",
   "version": "1.0.0",
   "description": "Automated semantic version releases powered by Github Issues.",
   "main": "index.js",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ericclemmons/github-semantic-release.git"
+    "url": "git+https://github.com/ericclemmons/github-semantic-version.git"
   },
   "keywords": [
     "semver",
@@ -23,9 +23,9 @@
   "author": "Eric Clemmons <eric@smarterspam.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ericclemmons/github-semantic-release/issues"
+    "url": "https://github.com/ericclemmons/github-semantic-version/issues"
   },
-  "homepage": "https://github.com/ericclemmons/github-semantic-release#readme",
+  "homepage": "https://github.com/ericclemmons/github-semantic-version#readme",
   "dependencies": {
     "github": "0.2.4",
     "meow": "^3.7.0"

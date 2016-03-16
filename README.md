@@ -1,18 +1,18 @@
-# github-semantic-release
+# github-semantic-version
 
 > Automated semantic version releases powered by Github Issues.
 
-[![travis build](https://img.shields.io/travis/ericclemmons/github-semantic-release.svg)](https://travis-ci.org/ericclemmons/github-semantic-release)
-[![version](https://img.shields.io/npm/v/github-semantic-release.svg)](http://npm.im/ggithub-semantic-release)
-[![downloads](https://img.shields.io/npm/dm/github-semantic-release.svg)](http://npm-stat.com/charts.html?package=github-semantic-release)
-[![MIT License](https://img.shields.io/npm/l/github-semantic-release.svg)](http://opensource.org/licenses/MIT)
+[![travis build](https://img.shields.io/travis/ericclemmons/github-semantic-version.svg)](https://travis-ci.org/ericclemmons/github-semantic-version)
+[![version](https://img.shields.io/npm/v/github-semantic-version.svg)](http://npm.im/ggithub-semantic-version)
+[![downloads](https://img.shields.io/npm/dm/github-semantic-version.svg)](http://npm-stat.com/charts.html?package=github-semantic-version)
+[![MIT License](https://img.shields.io/npm/l/github-semantic-version.svg)](http://opensource.org/licenses/MIT)
 
 ## Getting Started
 
 ### 1. Install
 
 ```shell
-$ npm install --save-dev github-semantic-release
+$ npm install --save-dev github-semantic-version
 ```
 
 ### 2. Add labels
@@ -30,11 +30,11 @@ $ git-labelmaker
 ? Welcome to git-labelmaker!
 What would you like to do?
 > Add Labels From Package
-? What is the path & name of the package you want to use? (eg: `packages/my-label-pkg.json`) ./node_modules/github-semantic-release/labels.json
+? What is the path & name of the package you want to use? (eg: `packages/my-label-pkg.json`) ./node_modules/github-semantic-version/labels.json
 Successfully created 3 labels
 ```
 
-### 3. Assign `Breaking`, `Feature`, or `Fix` to issues.
+### 3. Assign `Major`, `Minor`, or `Patch` to issues.
 
 
 
