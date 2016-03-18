@@ -53,7 +53,10 @@ if (!cli.flags.force && branch !== "master") {
  */
 
 var execSync = require("child_process").execSync;
-var latestTag = execSync("git fetch --tags && git tag")
+var latestTag = execSync("git fetch --tags && git tag", {
+    env: process.env,
+    stdio: "inherit"
+  })
   .toString()
   .split("\n")
   .filter(function(tag) {
@@ -74,7 +77,10 @@ var version = pkg.version;
  * Get first commit
  */
 
-var initialCommit = execSync("git log --format=%h --max-parents=0 HEAD")
+var initialCommit = execSync("git log --format=%h --max-parents=0 HEAD", {
+    env: process.env,
+    stdio: "inherit"
+  })
   .toString()
   .split("\n")
   .filter(Boolean)
@@ -89,7 +95,11 @@ var execSync = require("child_process").execSync;
 var util = require("util");
 var range = util.format("%s..HEAD", latestTag || initialCommit);
 
-var commitContents = execSync(util.format("git log --merges -n1 --format='%%an|%%en|%%s' %s", range)).toString();
+var commitContents = execSync(util.format("git log --merges -n1 --format='%%an|%%en|%%s' %s", range), {
+  env: process.env,
+  stdio: "inherit"
+}).toString();
+
 var commitParts = commitContents.split("\n").filter(Boolean).join("").split("|");
 
 var name = commitParts[0];
@@ -97,8 +107,15 @@ var email = commitParts[1];
 var message = commitParts[2];
 
 if (process.env.CI) {
-  execSync(util.format("git config user.name \"%s\"", name), { env: process.env });
-  execSync(util.format("git config user.email \"%s\"", email), { env: process.env });
+  execSync(util.format("git config user.name \"%s\"", name), {
+    env: process.env,
+    stdio: "inherit"
+  });
+
+  execSync(util.format("git config user.email \"%s\"", email), {
+    env: process.env,
+    stdio: "inherit"
+  });
 }
 
 var prMatches = message.match(/Merge pull request #(\d+)/) || [];
@@ -113,7 +130,10 @@ if (!cli.flags.force && !pr) {
  * Get org/repo from URL
  */
 
-var urlContents = execSync("git config --get remote.origin.url")
+var urlContents = execSync("git config --get remote.origin.url", {
+    env: process.env,
+    stdio: "inherit"
+  })
   .toString()
   .split("\n")
   .filter(Boolean)
@@ -186,16 +206,28 @@ github.issues.getIssueLabels({
   console.info("Bumping existing v%s with %s release...", version, bump);
 
   if (process.env.NPM_TOKEN) {
-    execSync('echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc');
+    execSync('echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc', {
+      env: process.env,
+      stdio: "inherit"
+    });
   }
 
-  execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump), { env: process.env });
+  execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump), {
+    env: process.env,
+    stdio: "inherit"
+  });
 
   if (process.env.GH_TOKEN) {
     var origin = util.format("https://%s:%s@github.com/%s/%s.git", user, process.env.GH_TOKEN, user, repo);
 
-    execSync(util.format("git remote set-url origin %s", origin), { env: process.env });
+    execSync(util.format("git remote set-url origin %s", origin), {
+      env: process.env,
+      stdio: "inherit"
+    });
   }
 
-  execSync("git push origin master --tags", { env: process.env });
+  execSync("git push origin master --tags", {
+    env: process.env,
+    stdio: "inherit"
+  });
 });
