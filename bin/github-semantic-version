@@ -117,7 +117,7 @@ if (!cli.flags.force && !pr) {
  * Get org/repo from URL
  */
 
-var urlContents = execSync("git config --get remote.origin.url", { env: process.env }))
+var urlContents = execSync("git config --get remote.origin.url", { env: process.env })
   .toString()
   .split("\n")
   .filter(Boolean)
@@ -190,7 +190,7 @@ github.issues.getIssueLabels({
   console.info("Bumping existing v%s with %s release...", version, bump);
 
   if (process.env.NPM_TOKEN) {
-    execSync('echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc', { env: process.env }));
+    execSync('echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc', { env: process.env });
   }
 
   execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump), { env: process.env });
