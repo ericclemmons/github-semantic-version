@@ -89,7 +89,11 @@ var execSync = require("child_process").execSync;
 var util = require("util");
 var range = util.format("%s..HEAD", latestTag || initialCommit);
 
-var commitContents = execSync(util.format("git log --merges -n1 --format='%%an|%%en|%%s' %s", range), { env: process.env })).toString();
+var commitContents = execSync(
+  util.format("git log --merges -n1 --format='%%an|%%en|%%s' %s", range),
+  { env: process.env }
+).toString();
+
 var commitParts = commitContents.split("\n").filter(Boolean).join("").split("|");
 
 var name = commitParts[0];
