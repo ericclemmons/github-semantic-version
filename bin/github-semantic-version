@@ -57,7 +57,7 @@ var latestTag = execSync("git fetch --tags && git tag", { env: process.env })
   .toString()
   .split("\n")
   .filter(function(tag) {
-    return tag.match(/^v(\d+)\.(\d+)\.(\d)\./);
+    return tag.match(/^v(\d+)\.(\d+)\.(\d)/);
   })
   .pop()
 ;
