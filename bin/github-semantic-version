@@ -53,7 +53,7 @@ if (!cli.flags.force && branch !== "master") {
  */
 
 var execSync = require("child_process").execSync;
-var latestTag = execSync("git fetch --tags && git tag")
+var latestTag = execSync("git fetch --tags && git tag", { env: process.env })
   .toString()
   .split("\n")
   .filter(function(tag) {
@@ -74,7 +74,7 @@ var version = pkg.version;
  * Get first commit
  */
 
-var initialCommit = execSync("git log --format=%h --max-parents=0 HEAD")
+var initialCommit = execSync("git log --format=%h --max-parents=0 HEAD", { env: process.env })
   .toString()
   .split("\n")
   .filter(Boolean)
@@ -89,7 +89,7 @@ var execSync = require("child_process").execSync;
 var util = require("util");
 var range = util.format("%s..HEAD", latestTag || initialCommit);
 
-var commitContents = execSync(util.format("git log --merges -n1 --format='%%an|%%en|%%s' %s", range)).toString();
+var commitContents = execSync(util.format("git log --merges -n1 --format='%%an|%%en|%%s' %s", range), { env: process.env })).toString();
 var commitParts = commitContents.split("\n").filter(Boolean).join("").split("|");
 
 var name = commitParts[0];
@@ -113,7 +113,7 @@ if (!cli.flags.force && !pr) {
  * Get org/repo from URL
  */
 
-var urlContents = execSync("git config --get remote.origin.url")
+var urlContents = execSync("git config --get remote.origin.url", { env: process.env }))
   .toString()
   .split("\n")
   .filter(Boolean)
@@ -186,7 +186,7 @@ github.issues.getIssueLabels({
   console.info("Bumping existing v%s with %s release...", version, bump);
 
   if (process.env.NPM_TOKEN) {
-    execSync('echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc');
+    execSync('echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc', { env: process.env }));
   }
 
   execSync(util.format("npm version %s -m 'Automated Release: v%s'", bump), { env: process.env });
