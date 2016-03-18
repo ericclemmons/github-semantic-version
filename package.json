@@ -6,6 +6,8 @@
   "scripts": {
     "predeploy": "./bin/github-semantic-version",
     "deploy": "npm publish",
+    "pretest:fail": "./bin/github-semantic-version",
+    "test:fail": "echo Should have failed",
     "test": "echo Testing branch=${TRAVIS_BRANCH}"
   },
   "repository": {

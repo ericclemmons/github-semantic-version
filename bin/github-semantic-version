@@ -24,8 +24,7 @@ var cli = meow([
 
 if (!cli.flags.force && !process.env.CI) {
   console.error("Not in CI environement.");
-  cli.showHelp();
-  process.exit(1);
+  cli.showHelp(1);
 }
 
 /**
