@@ -238,11 +238,12 @@ export default class Version {
   async push() {
     if (process.env.CI && process.env.GH_TOKEN) {
       const { user, repo } = Version.getUserRepo();
-      const origin = `https://${user}:GH_TOKEN@github.com/${user}/${repo}.git`;
+      const token = '${GH_TOKEN}';
+      const origin = `https://${user}:${token}@github.com/${user}/${repo}.git`;
 
       debug.info(`Explicitly setting git origin to: ${origin}`);
 
-      Version.exec(`git remote set-url origin ${origin.replace("GH_TOKEN", process.env.GH_TOKEN)}`);
+      Version.exec(`git remote set-url origin ${origin}`);
     }
 
     const cmd = "git push origin master --tags";
