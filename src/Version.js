@@ -102,7 +102,7 @@ export default class Version {
         ;
 
         if (increment) {
-          debug.info(`Found ${Version.INCREMENT_PATCH} label on PR #${number}.`);
+          debug.info(`Found ${increment} label on PR #${number}.`);
           return resolve(increment);
         }
 
