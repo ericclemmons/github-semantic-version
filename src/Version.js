@@ -202,6 +202,7 @@ export default class Version {
     }
 
     if (process.env.CI) {
+      const range = Version.getCommitRange();
       const commit = Version.exec(`git log -n1 --format='%an|%ae|%s' ${range}`).shift();
       const [ name, email, message ] = commit.split("|");
 
