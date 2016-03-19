@@ -131,7 +131,11 @@ export default class Version {
 
     const [ name, email, message ] = commit.split("|");
 
-    const [ _, pr ] = message.match(/Merge pull request #(\d+)/);
+    if (!message) {
+      return debug.error(`Could not parse name, email, & message from: ${commit}`);
+    }
+
+    const [ , pr ] = message.match(/Merge pull request #(\d+)/) || [];
 
     return pr;
   }
