@@ -241,7 +241,7 @@ export default class Version {
 
       debug.info(`Explicitly setting git origin to: ${origin}`);
 
-      Version.exec(origin.replace("GH_TOKEN", process.env.GH_TOKEN));
+      Version.exec(`git remote set-url origin ${origin.replace("GH_TOKEN", process.env.GH_TOKEN)}`);
     }
 
     const cmd = "git push origin master --tags";
