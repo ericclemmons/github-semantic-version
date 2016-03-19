@@ -96,14 +96,14 @@ export default class Version {
         const increment = labels
           .map((label) => label.name)
           .filter((name) => name.match(/^Version:/))
-          .map((name) => name.split("Version: ").pop())
-          .map((increment) => Version[`VERSION_${increment}`])
+          .map((name) => name.split("Version: ").pop().toUpperCase())
+          .map((increment) => Version[`INCREMENT_${increment}`])
           .shift()
         ;
 
         if (increment) {
           debug.info(`Found ${Version.INCREMENT_PATCH} label on PR #${number}.`);
-          return resolve(incrememnt);
+          return resolve(increment);
         }
 
         debug.warn(`No "Version:" labels found on PR #${number}. Defaulting to ${Version.INCREMENT_PATCH}.`);
