@@ -207,7 +207,7 @@ export default class Version {
       const [ name, email, message ] = commit.split("|");
 
       debug.info(`Overriding user.name to ${name}`);
-      Version.exec(`git config user.name "${name}`);
+      Version.exec(`git config user.name "${name}"`);
 
       debug.info(`Overriding user.email to ${email}`);
       Version.exec(`git config user.email "${email}"`);
