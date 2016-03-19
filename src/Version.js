@@ -79,7 +79,7 @@ export default class Version {
       });
     }
 
-    const { user, repo } = this.getUserRepo();
+    const { user, repo } = Version.getUserRepo();
 
     return new Promise((resolve, reject) => {
       github.issues.getIssueLabels({ user, repo, number }, (err, labels) => {
@@ -232,7 +232,7 @@ export default class Version {
 
   async push() {
     if (process.env.CI && process.env.GH_TOKEN) {
-      const { user, repo } = this.getUserRepo();
+      const { user, repo } = Version.getUserRepo();
       const origin = `https://${user}:GH_TOKEN@github.com/${user}/${repo}.git`;
 
       debug.info(`Explicitly setting git origin to: ${origin}`);
