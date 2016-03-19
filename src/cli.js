@@ -12,7 +12,6 @@ const cli = meow(`
   Options:
     -b, --branch    (Default: master) Release branch, others are ignored.
     -d, --dry-run   Perform dry-run without pushing or publishing.
-    -f, --force     Bypass CI environment check.
 `, {
   alias: {
     b: "branch",
