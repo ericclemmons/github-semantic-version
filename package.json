@@ -3,6 +3,7 @@
   "version": "4.0.5",
   "description": "Automated semantic version releases powered by Github Issues.",
   "bin": "dist/cli.js",
+  "files": "dist",
   "scripts": {
     "predist": "rimraf dist",
     "dist": "babel src -d dist",
