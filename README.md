@@ -69,9 +69,19 @@ without permissions & security issues.
 ### 5. Update `.travis.yml`
 
 ```yaml
+sudo: false
+language: node_js
+cache:
+  directories:
+    - node_modules
+notifications:
+  email: false
+branches:
+  except:
+    - /^v[0-9]/
 deploy:
   provider: script
-  script: npm run deploy
+  script: npm run release
   skip_cleanup: true
   on:
     branch: master
@@ -82,8 +92,8 @@ deploy:
 ```json
 {
   "scripts": {
-    "predeploy": "github-semantic-version",
-    "deploy": "npm publish"
+    "release": "github-semantic-version",
+    "prepublish": "npm run build"
   }
 }
 ```
