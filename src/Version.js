@@ -23,8 +23,6 @@ export default class Version {
       ...options,
     }).toString();
 
-    debug.info("Output:\n", output);
-
     return output
       .split(EOL)
       .filter(Boolean)
@@ -265,8 +263,5 @@ export default class Version {
     await this.increment();
     await this.publish();
     await this.push();
-
-    console.log(Version.exec("git status"));
-    console.log(Version.exec("git diff"));
   }
 }
