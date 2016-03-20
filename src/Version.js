@@ -260,7 +260,7 @@ export default class Version {
     if (this.options.dryRun) {
       debug.warn(`[DRY RUN] ${cmd}`);
     } else {
-      Version.exec(cmd, { silent: true });
+      Version.exec(cmd, { stdio: "ignore" });
     }
   }
 
