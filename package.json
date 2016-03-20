@@ -1,6 +1,6 @@
 {
   "name": "github-semantic-version",
-  "version": "4.0.3",
+  "version": "4.0.4",
   "description": "Automated semantic version releases powered by Github Issues.",
   "bin": "dist/cli.js",
   "scripts": {
