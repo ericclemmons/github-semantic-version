@@ -21,9 +21,10 @@ export default class Version {
     const output = execSync(cmd, {
       env: process.env,
       ...options,
-    }).toString();
+    });
 
-    return output
+    return (output || "")
+      .toString()
       .split(EOL)
       .filter(Boolean)
     ;
