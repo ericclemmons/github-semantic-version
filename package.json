@@ -7,7 +7,7 @@
     "predist": "rimraf dist",
     "dist": "babel src -d dist",
     "release": "node dist/cli.js",
-    "pretest": "npm run dist",
+    "prepublish": "npm run dist",
     "test": "mocha",
     "test:watch": "mocha --watch"
   },
