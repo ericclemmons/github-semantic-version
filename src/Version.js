@@ -14,8 +14,11 @@ export default class Version {
   static INCREMENT_MINOR = "minor";
   static INCREMENT_PATCH = "patch";
 
-  static exec(cmd) {
-    const options = { env: process.env };
+  static exec(cmd, options = {}) {
+    const options = {
+      env: process.env,
+      ...options,
+    };
 
     debug.info(`Executing: ${cmd}`);
 
@@ -251,7 +254,7 @@ export default class Version {
     if (this.options.dryRun) {
       debug.warn(`[DRY RUN] ${cmd}`);
     } else {
-      Version.exec(cmd);
+      Version.exec(cmd, { silent: true });
     }
   }
 
