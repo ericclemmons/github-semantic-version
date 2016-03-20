@@ -198,6 +198,7 @@ export default class Version {
   async increment() {
     const increment = await Version.getIncrement();
     const cmd = `npm version ${increment} -m 'Automated Release: v%s'`;
+    const branch = Version.getBranch();
 
     debug.info(`Bumping v${this.pkg.version} with ${increment} release...`);
 
@@ -217,6 +218,7 @@ export default class Version {
       Version.exec(`git config user.email "${email}"`);
     }
 
+    Version.exec(`git checkout ${branch}`);
     Version.exec(cmd);
   }
 
