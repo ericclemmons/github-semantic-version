@@ -195,7 +195,7 @@ export default class Version {
 
   async increment() {
     const increment = await Version.getIncrement();
-    const cmd = `npm version ${increment} -m 'Automated Release: v%s'`;
+    const cmd = `npm version ${increment} -m "Automated Release: v%s\n\n[ci skip]"`;
     const branch = Version.getBranch();
 
     debug.info(`Bumping v${this.pkg.version} with ${increment} release...`);
