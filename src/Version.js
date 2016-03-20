@@ -23,8 +23,11 @@ export default class Version {
     debug.info(`Executing: ${cmd}`);
 
     // Execute command, split lines, & trim empty ones
-    return execSync(cmd, options)
-      .toString()
+    const output = execSync(cmd, options).toString();
+
+    debug.info("Output:\n", output);
+
+    return output
       .split(EOL)
       .filter(Boolean)
     ;
