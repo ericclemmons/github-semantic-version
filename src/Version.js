@@ -15,15 +15,13 @@ export default class Version {
   static INCREMENT_PATCH = "patch";
 
   static exec(cmd, options = {}) {
-    const options = {
-      env: process.env,
-      ...options,
-    };
-
     debug.info(`Executing: ${cmd}`);
 
     // Execute command, split lines, & trim empty ones
-    const output = execSync(cmd, options).toString();
+    const output = execSync(cmd, {
+      env: process.env,
+      ...options,
+    }).toString();
 
     debug.info("Output:\n", output);
 
