@@ -262,5 +262,8 @@ export default class Version {
     await this.increment();
     await this.publish();
     await this.push();
+
+    console.log(Version.exec("git status"));
+    console.log(Version.exec("git diff"));
   }
 }
