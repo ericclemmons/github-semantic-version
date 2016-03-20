@@ -207,6 +207,11 @@ export default class Version {
     if (process.env.CI) {
       const range = Version.getCommitRange();
       const commit = Version.exec(`git log -n1 --format='%an|%ae|%s' ${range}`).shift();
+
+      if (!commit) {
+        throw new Error(`No commits found in ${range}`);
+      }
+
       const [ name, email, message ] = commit.split("|");
 
       debug.info(`Overriding user.name to ${name}`);
