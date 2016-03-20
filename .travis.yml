@@ -5,6 +5,9 @@ cache:
     - node_modules
 notifications:
   email: false
+branches:
+  except:
+    - /^v[0-9]/
 deploy:
   provider: script
   script: npm run release
