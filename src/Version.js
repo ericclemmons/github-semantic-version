@@ -145,7 +145,7 @@ export default class Version {
   }
 
   static getLatestTag() {
-    const tag = Version.exec("git fetch --tags && git tag")
+    const tag = Version.exec("git fetch --tags && git tag -l v*")
       .filter(function(tag) {
         return tag.match(/^v(\d+)\.(\d+)\.(\d)/);
       })
