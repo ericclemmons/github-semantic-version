@@ -17,8 +17,6 @@ export default class Version {
   static exec(cmd) {
     const options = { env: process.env };
 
-    debug.info(`Executing: ${cmd}`);
-
     // Execute command, split lines, & trim empty ones
     return execSync(cmd, options)
       .toString()
