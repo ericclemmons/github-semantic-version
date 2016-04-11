@@ -4,7 +4,8 @@
   "description": "Automated semantic version releases powered by Github Issues.",
   "bin": "dist/cli.js",
   "files": [
-    "dist"
+    "dist",
+    "labels.json"
   ],
   "scripts": {
     "predist": "rimraf dist",
