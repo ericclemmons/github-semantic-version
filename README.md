@@ -92,8 +92,10 @@ deploy:
 ```json
 {
   "scripts": {
+    ...
+    "prerelease": "npm run build",
     "release": "github-semantic-version",
-    "prepublish": "npm run build"
+    ...
   }
 }
 ```
