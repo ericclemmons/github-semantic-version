@@ -11,20 +11,26 @@ const cli = meow(`
 
   Options:
     -b, --branch    (Default: master) Release branch, others are ignored.
-    -d, --dry-run   Perform dry-run without pushing or publishing.
+    -r, --dry-run   Perform dry-run without pushing or publishing.
 `, {
   alias: {
     b: "branch",
     d: "debug",
     f: "force",
+    r: "dry-run"
   },
 
   default: Version.defaultOptions,
 });
 
 if (process.env.CI || cli.flags.dryRun || cli.flags.force) {
-  new Version(cli.pkg, cli.flags).release();
+  const version = new Version(cli.pkg, cli.flags);
+  version.calculateCurrentVersion();
+  version.getChangeLogContents()
+      .then((contents) => {
+        Version.writeChangeLog(contents);
+     });
 } else {
-  error("Not in CI environement.");
+  error("Not in CI environment.");
   cli.showHelp(1);
 }
