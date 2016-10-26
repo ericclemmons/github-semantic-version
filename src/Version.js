@@ -37,7 +37,11 @@ export default class Version {
   static getStartVersion() {
     try {
       var pkgPath = path.resolve(process.cwd(), './package.json');
-      return fs.readJsonSync(pkgPath).startVersion;
+      const startVersion = fs.readJsonSync(pkgPath).startVersion;
+
+      if (startVersion) {
+        return startVersion;
+      }
     }
     catch (err) {}
 
