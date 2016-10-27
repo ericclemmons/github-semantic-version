@@ -18,6 +18,28 @@ export default class Version {
   static INCREMENT_MINOR = "minor";
   static INCREMENT_PATCH = "patch";
 
+  constructor(pkg, options) {
+    this.pkg = pkg;
+    this.options = {
+      ...Version.defaultOptions,
+      ...options,
+    };
+
+    const branch = Version.getBranch();
+
+    // force dry-run when not on the release-branch
+    if (branch !== this.options.branch) {
+      this.options.dryRun = true;
+    }
+
+    debug.info("Current branch: %s", branch);
+    debug.info("Release branch: %s", this.options.branch);
+
+    if (this.options.dryRun) {
+      debug.info("Dry-run enabled");
+    }
+  }
+
   static exec(cmd, options = {}) {
     debug.info(`Executing: ${cmd}`);
 
@@ -59,57 +81,6 @@ export default class Version {
       Version.getLatestTag() || Version.getInitialCommit(),
       "HEAD"
     ].join("..");
-  }
-
-  // returns the PR or commit with the increment level attached
-  static async getLastChangeWithIncrement() {
-    const pr = Version.getLastPullRequest();
-
-    if (!pr) {
-      debug.warn(`Only commits found. Defaulting to ${Version.INCREMENT_PATCH}.`);
-      const commitHash = Version.getLastCommit();
-      const githubapi = new GithubAPI(Version.getUserRepo());
-      const commit = await githubapi.getCommit(commitHash);
-      commit.increment = Version.INCREMENT_PATCH;
-      // get the last commit from github
-      return commit;
-    }
-
-    return await Version.getIncrementFromPullRequest(pr);
-  }
-
-  // returns a pull request with increment level noted
-  static async getIncrementFromPullRequest(number) {
-    const githubapi = new GithubAPI(Version.getUserRepo());
-    const detailedPR = await githubapi.getPullRequest(number);
-    detailedPR.labels = await githubapi.getIssueLabels(number);
-
-    if (!detailedPR.labels) {
-      debug.warn(`No labels found on PR #${number}. Defaulting to ${Version.INCREMENT_PATCH}.`);
-      detailedPR.increment = Version.INCREMENT_PATCH;
-
-      return detailedPR;
-    }
-
-    const increment = detailedPR.labels
-      .map((label) => label.name)
-      .filter((name) => name.match(/^Version:/))
-      .map((name) => name.split("Version: ").pop().toUpperCase())
-      .map((increment) => Version[`INCREMENT_${increment}`])
-      .shift()
-    ;
-
-    if (increment) {
-      debug.info(`Found ${increment} label on PR #${number}.`);
-      detailedPR.increment = increment;
-
-      return detailedPR;
-    }
-
-    debug.warn(`No "Version:" labels found on PR #${number}. Defaulting to ${Version.INCREMENT_PATCH}.`);
-    detailedPR.increment = Version.INCREMENT_PATCH;
-
-    return detailedPR;
   }
 
   static getInitialCommit() {
@@ -177,26 +148,51 @@ export default class Version {
     return { user, repo };
   }
 
-  constructor(pkg, options) {
-    this.pkg = pkg;
-    this.options = {
-      ...Version.defaultOptions,
-      ...options,
-    };
+  // returns the PR or commit with the increment level attached
+  static async getLastChangeWithIncrement() {
+    const pr = Version.getLastPullRequest();
 
-    const branch = Version.getBranch();
+    if (!pr) {
+      debug.warn(`Only commits found. Defaulting to ${Version.INCREMENT_PATCH}.`);
+      const commitSHA = Version.getLastCommit();
 
-    // force dry-run when not on the release-branch
-    if (branch !== this.options.branch) {
-      this.options.dryRun = true;
+      // get the last commit from github
+      const githubapi = new GithubAPI(Version.getUserRepo());
+      const commit = await githubapi.getCommit(commitSHA);
+      commit.increment = Version.INCREMENT_PATCH;
+
+      return commit;
     }
 
-    debug.info("Current branch: %s", branch);
-    debug.info("Release branch: %s", this.options.branch);
+    return await Version.getIncrementFromPullRequest(pr);
+  }
 
-    if (this.options.dryRun) {
-      debug.info("Dry-run enabled");
+  // returns a pull request with increment level noted
+  static async getIncrementFromPullRequest(number) {
+    const githubapi = new GithubAPI(Version.getUserRepo());
+    const prDetails = await githubapi.getPullRequest(number);
+    prDetails.labels = await githubapi.getIssueLabels(number);
+
+    if (!prDetails.labels) {
+      debug.warn(`No labels found on PR #${number}. Defaulting to ${Version.INCREMENT_PATCH}.`);
+      prDetails.increment = Version.INCREMENT_PATCH;
+
+      return prDetails;
     }
+
+    const increment = Version.getIncrementFromIssueLabels(prDetails);
+
+    if (increment) {
+      debug.info(`Found ${increment} label on PR #${number}.`);
+      prDetails.increment = increment;
+
+      return prDetails;
+    }
+
+    debug.warn(`No "Version:" labels found on PR #${number}. Defaulting to ${Version.INCREMENT_PATCH}.`);
+    prDetails.increment = Version.INCREMENT_PATCH;
+
+    return prDetails;
   }
 
   async increment() {
@@ -368,22 +364,23 @@ export default class Version {
     }
   }
 
-  getIncrementFromIssueLabels(issue) {
+  static getIncrementFromIssueLabels(issue) {
     // commits won't have labels property
     return issue.labels ? issue.labels
       .map((label) => label.name)
       .filter((name) => name.match(/^Version:/))
-      .map((name) => name.split("Version: ").pop().toLowerCase())
+      .map((name) => name.split("Version: ").pop().toUpperCase())
+      .map((increment) => Version[`INCREMENT_${increment}`])
       .shift()
       : undefined;
     ;
   }
 
-  getVersionFromTimeline(timeline) {
+  static getVersionFromTimeline(timeline) {
     let version = [0, 0, 0];
 
     timeline.forEach((event) => {
-      const increment = this.getIncrementFromIssueLabels(event);
+      const increment = Version.getIncrementFromIssueLabels(event);
       version = Version.incrementVersion(increment, version);
     });
 
@@ -415,7 +412,7 @@ export default class Version {
         lines.push(`\n## ${lastEventDate}\n\n`);
       }
 
-      const increment = this.getIncrementFromIssueLabels(issue);
+      const increment = Version.getIncrementFromIssueLabels(issue);
 
       version = Version.incrementVersion(increment, version);
 
@@ -456,7 +453,7 @@ export default class Version {
   async calculateCurrentVersion() {
     const allEvents = await this.getRepoTimeline();
 
-    return this.getVersionFromTimeline(allEvents);
+    return Version.getVersionFromTimeline(allEvents);
   }
 
   static writeChangeLog(lines) {
