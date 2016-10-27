@@ -22,6 +22,43 @@ export default class GithubAPI {
     }
   }
 
+  async getCommit(hash) {
+    return new Promise((resolve, reject) => {
+      this.github.repos.getCommit({ ...this.defaultOptions, sha: hash }, (err, commit) => {
+        if (err) {
+          return reject(err);
+        }
+
+        return resolve({
+          date: commit.commit.author.date,
+          sha: commit.sha,
+          user: commit.author ? commit.author.login : undefined,
+          userName: commit.commit.author.name,
+          message: commit.commit.message,
+          url: commit.html_url,
+        });
+      });
+    });
+  }
+
+  async getPullRequest(prNumber) {
+    return new Promise((resolve, reject) => {
+      this.github.pullRequests.get({ ...this.defaultOptions, number: prNumber }, (err, pr) => {
+        if (err) {
+          return reject(err);
+        }
+
+        return resolve({
+          date: pr.merged_at,
+          user: pr.user.login,
+          title: pr.title,
+          nuber: pr.number,
+          url: pr.html_url,
+        });
+      });
+    });
+  }
+
   async getIssueLabels(issueNumber) {
     return new Promise((resolve, reject) => {
       this.github.issues.getIssueLabels({ ...this.defaultOptions, number: issueNumber }, (err, labels) => {
@@ -100,10 +137,6 @@ export default class GithubAPI {
         if (err) {
           return reject(err);
         }
-
-        // commits.forEach((c) => {
-        //   console.log(`commit sha: ${c.sha}, author: ${c.author}`);
-        // })
 
         allCommits = allCommits.concat(
           commits.map((commit) => ({

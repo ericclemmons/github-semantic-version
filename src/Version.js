@@ -34,20 +34,6 @@ export default class Version {
     ;
   }
 
-  static getStartVersion() {
-    try {
-      var pkgPath = path.resolve(process.cwd(), './package.json');
-      const startVersion = fs.readJsonSync(pkgPath).startVersion;
-
-      if (startVersion) {
-        return startVersion;
-      }
-    }
-    catch (err) {}
-
-    return "0.0.0";
-  }
-
   static getBranch() {
     const branch = (
       process.env.BRANCH
@@ -75,26 +61,37 @@ export default class Version {
     ].join("..");
   }
 
-  static async getIncrement() {
+  // returns the PR or commit with the increment level attached
+  static async getLastChangeWithIncrement() {
     const pr = Version.getLastPullRequest();
 
     if (!pr) {
       debug.warn(`Only commits found. Defaulting to ${Version.INCREMENT_PATCH}.`);
-      return Version.INCREMENT_PATCH;
+      const commitHash = Version.getLastCommit();
+      const githubapi = new GithubAPI(Version.getUserRepo());
+      const commit = await githubapi.getCommit(commitHash);
+      commit.increment = Version.INCREMENT_PATCH;
+      // get the last commit from github
+      return commit;
     }
 
     return await Version.getIncrementFromPullRequest(pr);
   }
 
+  // returns a pull request with increment level noted
   static async getIncrementFromPullRequest(number) {
     const githubapi = new GithubAPI(Version.getUserRepo());
-    const labels = await githubapi.getIssueLabels(number);
-    if (!labels) {
+    const detailedPR = await githubapi.getPullRequest(number);
+    detailedPR.labels = await githubapi.getIssueLabels(number);
+
+    if (!detailedPR.labels) {
       debug.warn(`No labels found on PR #${number}. Defaulting to ${Version.INCREMENT_PATCH}.`);
-      return Version.INCREMENT_PATCH;
+      detailedPR.increment = Version.INCREMENT_PATCH;
+
+      return detailedPR;
     }
 
-    const increment = labels
+    const increment = detailedPR.labels
       .map((label) => label.name)
       .filter((name) => name.match(/^Version:/))
       .map((name) => name.split("Version: ").pop().toUpperCase())
@@ -104,16 +101,26 @@ export default class Version {
 
     if (increment) {
       debug.info(`Found ${increment} label on PR #${number}.`);
-      return increment;
+      detailedPR.increment = increment;
+
+      return detailedPR;
     }
 
     debug.warn(`No "Version:" labels found on PR #${number}. Defaulting to ${Version.INCREMENT_PATCH}.`);
+    detailedPR.increment = Version.INCREMENT_PATCH;
 
-    return Version.INCREMENT_PATCH;
+    return detailedPR;
   }
 
   static getInitialCommit() {
     return Version.exec("git log --format=%h --max-parents=0 HEAD")
+      .filter(Boolean)
+      .pop()
+    ;
+  }
+
+  static getLastCommit() {
+    return Version.exec("git log -1 --format=%h HEAD")
       .filter(Boolean)
       .pop()
     ;
@@ -193,17 +200,20 @@ export default class Version {
   }
 
   async increment() {
-    const increment = await Version.getIncrement();
-    const cmd = `npm version ${increment} -m "Automated release: v%s\n\n[ci skip]"`;
+    const lastChange = await Version.getLastChangeWithIncrement();
+    const cmd = `npm version ${lastChange.increment} -m "Automated release: v%s\n\n[ci skip]"`;
     const branch = Version.getBranch();
-    console.log(increment);
 
-    debug.info(`Bumping v${this.pkg.version} with ${increment} release...`);
+    debug.info(`Bumping v${this.pkg.version} with ${lastChange.increment} release...`);
 
     if (this.options.dryRun) {
+      if (this.options.changelog) {
+        console.log(`[DRY RUN] appending to changelog: ${lastChange.title || lastChange.message}`);
+      }
       return debug.warn(`[DRY RUN] ${cmd}`);
     }
 
+    // override the git user/email based on last commit
     if (process.env.CI) {
       const range = Version.getCommitRange();
       const commit = Version.exec(`git log -n1 --format='%an|%ae|%s' ${range}`);
@@ -219,6 +229,11 @@ export default class Version {
 
       debug.info(`Overriding user.email to ${email}`);
       Version.exec(`git config user.email "${email}"`);
+    }
+
+    // append the latest PR message to the changelog
+    if (this.options.changelog) {
+      console.log(`appending to changelog: ${lastChange.title}`);
     }
 
     Version.exec(`git checkout ${branch}`);
@@ -264,7 +279,6 @@ export default class Version {
     }
   }
 
-  // TODO: rename this
   static sortItems(issues, afterDate, sortBy = "date", direction = "desc") {
     if (!issues) {
       return [];
@@ -305,6 +319,10 @@ export default class Version {
   }
 
   async getRepoTimeline() {
+    if (this.timeline) {
+      return this.timeline;
+    }
+
     const githubapi = new GithubAPI(Version.getUserRepo());
     debug.info(`Fetching all merged pull requests for the repo...`);
     const allIssues = await githubapi.searchIssues({ state: "closed", type: "pr", is: "merged" });
@@ -316,7 +334,7 @@ export default class Version {
     // populate the commits for each pull request
     debug.info(`Fetching the commits associated with the pull requests.`)
     const allPRCommits = flattenDeep(await this.getPullRequestCommits(allIssues));
-    debug.info(`Commits fetched: ${allPRCommits.length}`);
+    debug.info(`Commits (attached to PRs) fetched: ${allPRCommits.length}`);
 
     // get a list of commits not part of any pull requests
     // and not in the form of "Merge pull request #"
@@ -335,13 +353,47 @@ export default class Version {
       ['asc'],
     );
 
-    // console.log(theTimeline);
+    this.timeline = theTimeline;
 
     return theTimeline;
   }
 
+  // TODO: should be static for consistency?
+  incrementVersion(level, version) {
+    switch(level) {
+      case "major":
+        return [ version[0] + 1, 0, 0 ];
+      case "minor":
+        return [ version[0], version[1] + 1, 0 ];
+      default:
+        return [ version[0], version[1], version[2] + 1 ];
+    }
+  }
+
+  // commits won't have labels property
+  getIncrementFromIssueLabels(issue) {
+    return issue.labels ? issue.labels
+      .map((label) => label.name)
+      .filter((name) => name.match(/^Version:/))
+      .map((name) => name.split("Version: ").pop().toLowerCase())
+      .shift()
+      : undefined;
+    ;
+  }
+
+  getVersionFromTimeline(timeline) {
+    let version = [0, 0, 0];
+
+    timeline.forEach((event) => {
+      const increment = this.getIncrementFromIssueLabels(event);
+      version = this.incrementVersion(increment, version);
+    });
+
+    return version.join(".");
+  }
+
   getChangeLogLine(version, issue) {
-    const versionNumber = `[${version[0]}.${version[1]}.${version[2]}]`;
+    const versionNumber = version.join('.');
     const issueNumber = issue.number ? `[${issue.number}]` : `[${issue.sha.slice(0,7)}]`;
     const issueUrl = `(${issue.url})`;
     const title = `${issue.title ? issue.title : issue.message.replace(/\n/g, " ")}`;
@@ -355,7 +407,7 @@ export default class Version {
     const allEvents = await this.getRepoTimeline();
 
     const lines = [];
-    let version = Version.getStartVersion().split(".").map((v) => Number(v));
+    let version = (this.pkg.startVersion || "0.0.0").split(".").map((v) => Number(v));
     let lastEventDate = moment(allEvents[0].date).format("YYYY-MM-DD");
 
     allEvents.forEach((issue) => {
@@ -365,30 +417,9 @@ export default class Version {
         lines.push(`\n## ${lastEventDate}\n\n`);
       }
 
-      // commits won't have labels property
-      const increment = issue.labels ? issue.labels
-        .map((label) => label.name)
-        .filter((name) => name.match(/^Version:/))
-        .map((name) => name.split("Version: ").pop().toLowerCase())
-        .shift()
-        : undefined;
-      ;
+      const increment = this.getIncrementFromIssueLabels(issue);
 
-      if (increment) {
-        if (increment === "major") {
-          version[0] += 1;
-          version[1] = 0;
-          version[2] = 0;
-        } else if (increment === "minor") {
-          version[1] += 1;
-          version[2] = 0;
-        } else if (increment === "patch") {
-          version[2] += 1;
-        }
-      } else {
-        // no label match, assume patch
-        version[2] += 1;
-      }
+      version = this.incrementVersion(increment, version);
 
       lines.push(this.getChangeLogLine(version, issue));
 
@@ -402,6 +433,12 @@ export default class Version {
     return reverse(lines);
   }
 
+  async calculateCurrentVersion() {
+    const allEvents = await this.getRepoTimeline();
+
+    return this.getVersionFromTimeline(allEvents);
+  }
+
   static writeChangeLog(lines) {
     fs.writeFileSync("CHANGELOG.md", join(lines, ""), { encoding: "utf8" }, (err) => {
       if (err) {
@@ -410,63 +447,18 @@ export default class Version {
     });
   }
 
-  // TODO: refactor ?
-  // TODO: get rid of the date from the sorting... that's taken care of in the search now... or is it?
-  async calculateCurrentVersion() {
-    debug.info(`NPM VERSION: ${Version.getStartVersion()}`)
-    const githubapi = new GithubAPI(Version.getUserRepo());
-
-    let lastFoundPR;
-    const queryBase = { state: "closed", type: "pr", is: "merged" };
-    const queryMajor = { ...queryBase, label: "Version: Major" };
-
-    const majorIssues = await githubapi.searchIssues(queryMajor);
-    const major = Version.sortItems(majorIssues);
-    lastFoundPR = first(major);
-    const lastMajorDate = objectPath.get(lastFoundPR, "date");
-
-    const queryMinor = { ...queryBase, label: "Version: Minor" };
-    if (lastMajorDate) {
-      queryMinor.closed = `>${lastMajorDate}`;
-    }
-
-    const minorIssues = await githubapi.searchIssues(queryMinor);
-    const minor = Version.sortItems(minorIssues, lastMajorDate);
-    lastFoundPR = first(minor) || lastFoundPR;
-    const lastMinorDate = objectPath.get(first(minor), "date") || lastMajorDate;
-
-    const queryPatch = { ...queryBase };
-    if (lastMinorDate) {
-      queryPatch.closed = `>${lastMinorDate}`;
-    }
-
-    const patchIssues = await githubapi.searchIssues(queryPatch);
-    const patch = Version.sortItems(patchIssues, lastMinorDate);
-    lastFoundPR = first(patch) || lastFoundPR;
-
-    // TODO: should get the commits after the last MINOR PR, not PATCH PR.
-    const queryCommits = {};
-    if (lastFoundPR) {
-      queryCommits.since = lastFoundPR.date;
-    }
-
-    const commits = await githubapi.getCommitsFromRepo(queryCommits);
-
-    // shouldn't have to do this. since should only return commits AFTER that date...
-    const filteredCommits = commits
-      .filter((commit) => moment(commit.date).isAfter(moment(queryCommits.since)))
-      .filter((commit) => !commit.message.match(/^Automated Release:/))
-    ;
-
-    console.log(`${major.length}.${minor.length}.${patch.length + filteredCommits.length}`);
-
-    return `${major.length}.${minor.length}.${patch.length + filteredCommits.length}`;
-  }
-
   async release() {
     await this.increment();
     // await this.push();
+    // await this.publish();
+  }
+
+  async refresh() {
+    const version = await this.calculateCurrentVersion();
+    const changeLog = await this.getChangeLogContents();
+    Version.writeChangeLog(changeLog);
+    // this.persistPackageVersion(version);
+    // await this.push();
+    // await this.publish();
   }
 };
-
-// TODO: custom labels
