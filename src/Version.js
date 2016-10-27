@@ -467,18 +467,30 @@ export default class Version {
     });
   }
 
+  writePackageVersion(version) {
+    const cmd = `npm version ${version} -m "Automated release: v%s\n\n[ci skip]"`;
+    const branch = Version.getBranch();
+
+    if (this.options.dryRun) {
+      return debug.warn(`[DRY RUN] ${cmd}`);
+    }
+
+    Version.exec(`git checkout ${branch}`);
+    Version.exec(cmd);
+  }
+
   async release() {
     await this.increment();
-    // await this.push();
-    // await this.publish();
+    await this.push();
+    await this.publish();
   }
 
   async refresh() {
     const version = await this.calculateCurrentVersion();
     const changeLog = await this.getChangeLogContents();
     Version.writeChangeLog(changeLog);
-    // this.persistPackageVersion(version);
-    // await this.push();
-    // await this.publish();
+    this.writePackageVersion(version);
+    await this.push();
+    await this.publish();
   }
 };
