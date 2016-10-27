@@ -52,7 +52,7 @@ export default class GithubAPI {
           date: pr.merged_at,
           user: pr.user.login,
           title: pr.title,
-          nuber: pr.number,
+          number: pr.number,
           url: pr.html_url,
         });
       });

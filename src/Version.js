@@ -207,10 +207,11 @@ export default class Version {
     debug.info(`Bumping v${this.pkg.version} with ${lastChange.increment} release...`);
 
     if (this.options.dryRun) {
-      if (this.options.changelog) {
-        console.log(`[DRY RUN] appending to changelog: ${lastChange.title || lastChange.message}`);
-      }
       return debug.warn(`[DRY RUN] ${cmd}`);
+    }
+
+    if (this.options.changelog) {
+      this.appendChangeLog(this.pkg.version, lastChange);
     }
 
     // override the git user/email based on last commit
@@ -229,11 +230,6 @@ export default class Version {
 
       debug.info(`Overriding user.email to ${email}`);
       Version.exec(`git config user.email "${email}"`);
-    }
-
-    // append the latest PR message to the changelog
-    if (this.options.changelog) {
-      console.log(`appending to changelog: ${lastChange.title}`);
     }
 
     Version.exec(`git checkout ${branch}`);
@@ -358,9 +354,11 @@ export default class Version {
     return theTimeline;
   }
 
-  // TODO: should be static for consistency?
-  incrementVersion(level, version) {
-    switch(level) {
+  static incrementVersion(increment, version) {
+    if (typeof version === "string") {
+        version = version.split(".").map((v) => Number(v));
+    }
+    switch(increment) {
       case "major":
         return [ version[0] + 1, 0, 0 ];
       case "minor":
@@ -370,8 +368,8 @@ export default class Version {
     }
   }
 
-  // commits won't have labels property
   getIncrementFromIssueLabels(issue) {
+    // commits won't have labels property
     return issue.labels ? issue.labels
       .map((label) => label.name)
       .filter((name) => name.match(/^Version:/))
@@ -386,20 +384,20 @@ export default class Version {
 
     timeline.forEach((event) => {
       const increment = this.getIncrementFromIssueLabels(event);
-      version = this.incrementVersion(increment, version);
+      version = Version.incrementVersion(increment, version);
     });
 
     return version.join(".");
   }
 
-  getChangeLogLine(version, issue) {
+  static getChangeLogLine(version, issue) {
     const versionNumber = version.join('.');
     const issueNumber = issue.number ? `[${issue.number}]` : `[${issue.sha.slice(0,7)}]`;
     const issueUrl = `(${issue.url})`;
     const title = `${issue.title ? issue.title : issue.message.replace(/\n/g, " ")}`;
     const user = issue.user ? `(@${issue.user})` : `(${issue.userName})`;
 
-    return `- ${versionNumber} - (${issueNumber}${issueUrl}) - ${title} ${user}\n`;
+    return `- ${versionNumber} - (${issueNumber}${issueUrl}) - ${title} ${user}`;
   }
 
   async getChangeLogContents() {
@@ -419,9 +417,9 @@ export default class Version {
 
       const increment = this.getIncrementFromIssueLabels(issue);
 
-      version = this.incrementVersion(increment, version);
+      version = Version.incrementVersion(increment, version);
 
-      lines.push(this.getChangeLogLine(version, issue));
+      lines.push(`${Version.getChangeLogLine(version, issue)}\n`);
 
       lastEventDate = currentEventDate;
     });
@@ -431,6 +429,28 @@ export default class Version {
     lines.push(Version.getChangeLogHeader());
 
     return reverse(lines);
+  }
+
+  appendChangeLog(lastVersion, lastChange) {
+    const contents = fs.readFileSync("CHANGELOG.md", "utf8");
+    const lines = contents.split("\n");
+    const newVersion = Version.incrementVersion(lastChange.increment, lastVersion);
+
+    let newLines = lines.slice(0,5);
+    newLines.push(`## ${moment().format("YYYY-MM-DD")} - [${newVersion.join(".")} - current version]`);
+    newLines.push("");
+    newLines.push(Version.getChangeLogLine(newVersion, lastChange));
+
+    // if latest change is the same date
+    if(moment(lines[5].slice(3,13)).isSame(moment(),"day")) {
+        newLines = newLines.concat(lines.slice(7));
+    } else {
+        newLines.push("");
+        newLines.push(lines[5].slice(0,13));
+        newLines = newLines.concat(lines.slice(6));
+    }
+
+    Version.writeChangeLog(newLines.map((line) => `${line}\n`));
   }
 
   async calculateCurrentVersion() {
