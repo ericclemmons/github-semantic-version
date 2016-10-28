@@ -1,9 +1,19 @@
 #!/usr/bin/env node
 
 import meow from "meow";
+import path from "path";
+import fs from "fs-extra";
 
 import { error } from "./debug";
 import Version from "./Version";
+
+function getPackageOpts() {
+  try {
+    var pkgPath = path.resolve(process.cwd(), './package.json');
+    return fs.readJsonSync(pkgPath);
+  }
+  catch (err) {}
+}
 
 const cli = meow(`
   Usage:
@@ -27,8 +37,9 @@ const cli = meow(`
   default: Version.defaultOptions,
 });
 
-if (process.env.CI || cli.flags.dryRun || cli.flags.force) {
-  const version = new Version(cli.pkg, cli.flags);
+// run release only in CI environment. don't run complete changelog generation in CI.
+if (process.env.CI || cli.flags.dryRun || cli.flags.force || cli.flags.refresh) {
+  const version = new Version(getPackageOpts(), cli.flags);
 
   if (cli.flags.refresh) {
     version.refresh();
@@ -36,6 +47,6 @@ if (process.env.CI || cli.flags.dryRun || cli.flags.force) {
     version.release();
   }
 } else {
-  error("Not in CI environment.");
+  error("Not in CI environment or incorrect usage.");
   cli.showHelp(1);
 }
