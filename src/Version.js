@@ -197,8 +197,9 @@ export default class Version {
 
   async increment() {
     const lastChange = await Version.getLastChangeWithIncrement();
-    const cmd = `npm version ${lastChange.increment} -m "Automated release: v%s\n\n[ci skip]"`;
+    const cmd = `npm version ${lastChange.increment} --no-git-tag-version`;
     const branch = Version.getBranch();
+    const newVersion = Version.incrementVersion(lastChange.increment, this.pkg.version);
 
     debug.info(`Bumping v${this.pkg.version} with ${lastChange.increment} release...`);
 
@@ -207,7 +208,7 @@ export default class Version {
     }
 
     if (this.options.changelog) {
-      this.appendChangeLog(this.pkg.version, lastChange);
+      this.appendChangeLog(newVersion, lastChange);
     }
 
     // override the git user/email based on last commit
@@ -229,7 +230,15 @@ export default class Version {
     }
 
     Version.exec(`git checkout ${branch}`);
-    Version.exec(cmd);
+    Version.exec(cmd, { stdio: "ignore" });
+    Version.exec("git add package.json");
+
+    if (this.options.changelog) {
+      Version.exec("git add CHANGELOG.md");
+    }
+
+    Version.exec(`git commit -m "Automated release: v${newVersion}\n\n[ci skip]"`);
+    Version.exec(`git tag v${newVersion}`);
   }
 
   async publish() {
@@ -354,13 +363,14 @@ export default class Version {
     if (typeof version === "string") {
         version = version.split(".").map((v) => Number(v));
     }
+
     switch(increment) {
       case "major":
-        return [ version[0] + 1, 0, 0 ];
+        return [ version[0] + 1, 0, 0 ].join(".");
       case "minor":
-        return [ version[0], version[1] + 1, 0 ];
+        return [ version[0], version[1] + 1, 0 ].join(".");
       default:
-        return [ version[0], version[1], version[2] + 1 ];
+        return [ version[0], version[1], version[2] + 1 ].join(".");
     }
   }
 
@@ -385,17 +395,16 @@ export default class Version {
       version = Version.incrementVersion(increment, version);
     });
 
-    return version.join(".");
+    return version;
   }
 
   static getChangeLogLine(version, issue) {
-    const versionNumber = version.join('.');
     const issueNumber = issue.number ? `[${issue.number}]` : `[${issue.sha.slice(0,7)}]`;
     const issueUrl = `(${issue.url})`;
     const title = `${issue.title ? issue.title : issue.message.replace(/\n/g, " ")}`;
     const user = issue.user ? `(@${issue.user})` : `(${issue.userName})`;
 
-    return `- ${versionNumber} - (${issueNumber}${issueUrl}) - ${title} ${user}`;
+    return `- ${version} - (${issueNumber}${issueUrl}) - ${title} ${user}`;
   }
 
   async getChangeLogContents() {
@@ -403,7 +412,7 @@ export default class Version {
     const allEvents = await this.getRepoTimeline();
 
     const lines = [];
-    let version = (this.pkg.startVersion || "0.0.0").split(".").map((v) => Number(v));
+    let version = this.pkg.startVersion || "0.0.0";
     let lastEventDate = moment(allEvents[0].date).format("YYYY-MM-DD");
 
     allEvents.forEach((issue) => {
@@ -422,20 +431,19 @@ export default class Version {
       lastEventDate = currentEventDate;
     });
 
-    lines.push(`## ${lastEventDate} - [${version[0]}.${version[1]}.${version[2]} - current version]\n\n`);
+    lines.push(`## ${lastEventDate} - [${version} - current version]\n\n`);
 
     lines.push(Version.getChangeLogHeader());
 
     return reverse(lines);
   }
 
-  appendChangeLog(lastVersion, lastChange) {
+  appendChangeLog(newVersion, lastChange) {
     const contents = fs.readFileSync("CHANGELOG.md", "utf8");
     const lines = contents.split("\n");
-    const newVersion = Version.incrementVersion(lastChange.increment, lastVersion);
 
     let newLines = lines.slice(0,5);
-    newLines.push(`## ${moment().format("YYYY-MM-DD")} - [${newVersion.join(".")} - current version]`);
+    newLines.push(`## ${moment().format("YYYY-MM-DD")} - [${newVersion} - current version]`);
     newLines.push("");
     newLines.push(Version.getChangeLogLine(newVersion, lastChange));
 
