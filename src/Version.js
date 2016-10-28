@@ -332,7 +332,7 @@ export default class Version {
     // and not in the form of "Merge pull request #"
     const independentCommits = allCommits
       .filter((commit) => !commit.message.match(/^Merge pull request #/)) // fragile?
-      .filter((commit) => !commit.message.match(/^Automated Release: v/))
+      .filter((commit) => !commit.message.match(/^Automated Release: v/i))
       .filter((commit) => !find(allPRCommits, (prc) => prc === commit.sha)
     );
 
@@ -376,8 +376,9 @@ export default class Version {
     ;
   }
 
-  static getVersionFromTimeline(timeline) {
-    let version = [0, 0, 0];
+  // not static because we need the pkg option passed into the constructor
+  getVersionFromTimeline(timeline) {
+    let version = this.pkg.startVersion || "0.0.0";
 
     timeline.forEach((event) => {
       const increment = Version.getIncrementFromIssueLabels(event);
@@ -453,7 +454,7 @@ export default class Version {
   async calculateCurrentVersion() {
     const allEvents = await this.getRepoTimeline();
 
-    return Version.getVersionFromTimeline(allEvents);
+    return this.getVersionFromTimeline(allEvents);
   }
 
   static writeChangeLog(lines) {
@@ -464,8 +465,8 @@ export default class Version {
     });
   }
 
-  writePackageVersion(version) {
-    const cmd = `npm version ${version} -m "Automated release: v%s\n\n[ci skip]"`;
+  commitRefreshedChanges(version) {
+    const cmd = `npm version ${version} --no-git-tag-version`;
     const branch = Version.getBranch();
 
     if (this.options.dryRun) {
@@ -473,21 +474,26 @@ export default class Version {
     }
 
     Version.exec(`git checkout ${branch}`);
-    Version.exec(cmd);
+    Version.exec(cmd, { stdio: "ignore" });
+    Version.exec("git add package.json");
+    Version.exec("git add CHANGELOG.md");
+
+    Version.exec(`git commit -m "Automated release: v${version}\n\n[ci skip]"`);
+    Version.exec(`git tag v${version}`);
   }
 
   async release() {
     await this.increment();
     await this.push();
-    await this.publish();
+    //await this.publish();
   }
 
   async refresh() {
     const version = await this.calculateCurrentVersion();
     const changeLog = await this.getChangeLogContents();
     Version.writeChangeLog(changeLog);
-    this.writePackageVersion(version);
+    this.commitRefreshedChanges(version);
     await this.push();
-    await this.publish();
+    //await this.publish();
   }
 };
