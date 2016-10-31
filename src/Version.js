@@ -339,9 +339,11 @@ export default class Version {
 
     // get a list of commits not part of any pull requests
     // and not in the form of "Merge pull request #"
+    // and not part of any automatic release
     const independentCommits = allCommits
-      .filter((commit) => !commit.message.match(/^Merge pull request #/)) // fragile?
+      .filter((commit) => !commit.message.match(/^Merge pull request #/))
       .filter((commit) => !commit.message.match(/^Automated Release: v/i))
+      .filter((commit) => !commit.message.match(/\[ci skip\]/))
       .filter((commit) => !find(allPRCommits, (prc) => prc === commit.sha)
     );
 
