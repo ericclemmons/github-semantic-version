@@ -20,32 +20,43 @@ const cli = meow(`
     $ github-semantic-version
 
   Options:
-    -b, --branch    (Default: master) Release branch, others are ignored.
-    -r, --dry-run   Perform dry-run without pushing or publishing.
-    -h, --refresh   Re-generate the changelog and calculate the current repo version
-    -c, --changelog Append latest change to the changelog on release
+    -i, --init        Generates a new changelog and updates the current version in package.json.
+    -u, --update      Bump the version in package.json based on the last change.
+    -c, --changelog   Bump the version in package.json AND append last change to the CHANGELOG.md.
+    -r, --repo        Commits and pushes the changes (version and CHANGELOG) to the repo.
+    -p, --publish     Commits and pushes the changes to the repo, AND publishes the latest to NPM.
+    -b, --branch      (Default: master) Release branch, others are ignored.
+    --force           By default, -v and -c only work in CI environment. Override this only if you know what you're doing!
+    --debug           Output debug info about what's happening in the running process.
+    --dry-run         Perform a dry-run without writing, commiting, pushing, or publishing.
 `, {
   alias: {
-    b: "branch",
+    i: "init",
+    u: "update",
     c: "changelog",
-    d: "debug",
-    f: "force",
-    r: "dry-run",
-    h: "refresh"
+    r: "repo",
+    p: "publish",
+    b: "branch"
   },
 
   default: Version.defaultOptions,
 });
 
+const validEnvironment = process.env.CI || cli.flags.force || cli.flags.dryRun;
+const hasRequiredFlags = cli.flags.init || cli.flags.update || cli.flags.changelog;
+
 // run release only in CI environment. don't run complete changelog generation in CI.
-if (process.env.CI || cli.flags.dryRun || cli.flags.force || cli.flags.refresh) {
+if (validEnvironment && hasRequiredFlags) {
   const version = new Version(getPackageOpts(), cli.flags);
 
-  if (cli.flags.refresh) {
+  if (cli.flags.init) {
     version.refresh();
   } else {
     version.release();
   }
+} else if (validEnvironment && !hasRequiredFlags) {
+  error("Must specify one of the following options: -i, -u, or -c")
+  cli.showHelp(1);
 } else {
   error("Not in CI environment or incorrect usage.");
   cli.showHelp(1);

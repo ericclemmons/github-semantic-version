@@ -35,8 +35,19 @@ export default class Version {
     debug.info("Current branch: %s", branch);
     debug.info("Release branch: %s", this.options.branch);
 
+    this.shouldPush = (this.options.repo || this.options.publish);
+    this.shouldPublish = this.options.publish;
+
     if (this.options.dryRun) {
       debug.info("Dry-run enabled");
+    }
+
+    if (this.shouldPush) {
+      debug.info("Version updates will be pushed to the repo");
+    }
+
+    if (this.shouldPublish) {
+      debug.info("Version updates will be published to NPM")
     }
   }
 
@@ -203,16 +214,8 @@ export default class Version {
 
     debug.info(`Bumping v${this.pkg.version} with ${lastChange.increment} release...`);
 
-    if (this.options.dryRun) {
-      return debug.warn(`[DRY RUN] ${cmd}`);
-    }
-
-    if (this.options.changelog) {
-      this.appendChangeLog(newVersion, lastChange);
-    }
-
     // override the git user/email based on last commit
-    if (process.env.CI) {
+    if (process.env.CI && !this.options.dryRun) {
       const range = Version.getCommitRange();
       const commit = Version.exec(`git log -n1 --format='%an|%ae|%s' ${range}`);
 
@@ -229,16 +232,32 @@ export default class Version {
       Version.exec(`git config user.email "${email}"`);
     }
 
-    Version.exec(`git checkout ${branch}`);
-    Version.exec(cmd, { stdio: "ignore" });
-    Version.exec("git add package.json");
-
-    if (this.options.changelog) {
-      Version.exec("git add CHANGELOG.md");
+    if (this.shouldPush && !this.options.dryRun) {
+      Version.exec(`git checkout ${branch}`);
     }
 
-    Version.exec(`git commit -m "Automated release: v${newVersion}\n\n[ci skip]"`);
-    Version.exec(`git tag v${newVersion}`);
+    if (!this.options.dryRun) {
+      Version.exec(cmd, { stdio: "ignore" });
+    } else {
+      debug.warn(`[DRY RUN] Executing ${cmd}`);
+    }
+
+    if (this.shouldPush && !this.options.dryRun) {
+      Version.exec("git add package.json");
+    }
+
+    if (this.options.changelog) {
+      this.appendChangeLog(newVersion, lastChange);
+
+      if (this.shouldPush && !this.options.dryRun) {
+        Version.exec("git add CHANGELOG.md");
+      }
+    }
+
+    if (this.shouldPush && !this.options.dryRun) {
+      Version.exec(`git commit -m "Automated release: v${newVersion}\n\n[ci skip]"`);
+      Version.exec(`git tag v${newVersion}`);
+    }
   }
 
   async publish() {
@@ -274,7 +293,7 @@ export default class Version {
     const cmd = "git push origin master --tags";
 
     if (this.options.dryRun) {
-      debug.warn(`[DRY RUN] ${cmd}`);
+      debug.warn(`[DRY RUN] Executing ${cmd}`);
     } else {
       Version.exec(cmd, { stdio: "ignore" });
     }
@@ -309,7 +328,6 @@ export default class Version {
   async getPullRequestCommits(prs) {
     const githubapi = new GithubAPI(Version.getUserRepo());
 
-    // TODO: would be better if we could send concurrent requests here
     const prCommits = prs.map(async (pr) => {
       const commits = await githubapi.getCommitsFromPullRequest(pr.number);
 
@@ -327,8 +345,8 @@ export default class Version {
     const githubapi = new GithubAPI(Version.getUserRepo());
     debug.info(`Fetching all merged pull requests for the repo...`);
     const allIssues = await githubapi.searchIssues({ state: "closed", type: "pr", is: "merged" });
-    debug.info(`Pull requests fetched: ${allIssues.length}`);
-    debug.info(`Fetching all commits for the repo...`);
+    debug.info(`Merged pull requests fetched: ${allIssues.length}`);
+    debug.info(`Fetching all commits for the repo (yep, ALL commits)...`);
     const allCommits = await githubapi.getCommitsFromRepo();
     debug.info(`Commits fetched: ${allCommits.length}`);
 
@@ -344,6 +362,7 @@ export default class Version {
       .filter((commit) => !commit.message.match(/^Merge pull request #/))
       .filter((commit) => !commit.message.match(/^Automated Release: v/i))
       .filter((commit) => !commit.message.match(/\[ci skip\]/))
+      .filter((commit) => !commit.message.match(/\[skip ci\]/))
       .filter((commit) => !find(allPRCommits, (prc) => prc === commit.sha)
     );
 
@@ -441,7 +460,18 @@ export default class Version {
   }
 
   appendChangeLog(newVersion, lastChange) {
-    const contents = fs.readFileSync("CHANGELOG.md", "utf8");
+    if (this.options.dryRun) {
+      return debug.warn(`[DRY RUN] appending "${Version.getChangeLogLine(newVersion, lastChange)}" to CHANGELOG`);
+    }
+
+    const contents = fs.readFileSync("CHANGELOG.md", "utf8", (err, data) => {
+      if (err) {
+        debug.warn("Skipping appending CHANGELOG.md -- can't find a current CHANGELOG");
+      }
+
+      return data;
+    });
+
     const lines = contents.split("\n");
 
     let newLines = lines.slice(0,5);
@@ -458,7 +488,7 @@ export default class Version {
         newLines = newLines.concat(lines.slice(6));
     }
 
-    Version.writeChangeLog(newLines.map((line) => `${line}\n`));
+    this.writeChangeLog(newLines.map((line) => `${line}\n`));
   }
 
   async calculateCurrentVersion() {
@@ -467,7 +497,12 @@ export default class Version {
     return this.getVersionFromTimeline(allEvents);
   }
 
-  static writeChangeLog(lines) {
+  writeChangeLog(lines) {
+    if (this.options.dryRun) {
+      debug.warn(`[DRY RUN] writing changelog`);
+      return debug.warn(join(lines, ""));
+    }
+
     fs.writeFileSync("CHANGELOG.md", join(lines, ""), { encoding: "utf8" }, (err) => {
       if (err) {
         throw new Error("Problem writing CHANGELOG.md to file!");
@@ -477,11 +512,12 @@ export default class Version {
 
   commitRefreshedChanges(version) {
     const cmd = `npm version ${version} --no-git-tag-version`;
-    const branch = Version.getBranch();
 
     if (this.options.dryRun) {
-      return debug.warn(`[DRY RUN] ${cmd}`);
+      return debug.warn(`[DRY RUN] Executing ${cmd}`);
     }
+
+    const branch = Version.getBranch();
 
     Version.exec(`git checkout ${branch}`);
     Version.exec(cmd, { stdio: "ignore" });
@@ -492,18 +528,33 @@ export default class Version {
     Version.exec(`git tag v${version}`);
   }
 
+  // meant to be used after a successful CI build.
   async release() {
     await this.increment();
-    await this.push();
-    //await this.publish();
+
+    if (this.shouldPush) {
+      await this.push();
+
+      if (this.shouldPublish) {
+        await this.publish();
+      }
+    }
   }
 
+  // meant to be used as a one off refresh of the changelog generation and version calculation
   async refresh() {
     const version = await this.calculateCurrentVersion();
     const changeLog = await this.getChangeLogContents();
-    Version.writeChangeLog(changeLog);
-    this.commitRefreshedChanges(version);
-    await this.push();
-    //await this.publish();
+
+    this.writeChangeLog(changeLog);
+
+    if (this.shouldPush) {
+      this.commitRefreshedChanges(version);
+      await this.push();
+
+      if (this.shouldPublish) {
+        await this.publish();
+      }
+    }
   }
 };
