@@ -26,8 +26,8 @@ const cli = meow(`
   default: Version.defaultOptions,
 });
 
-// we really need a GI_TOKEN or GITHUB_TOKEN b/c api request limiting
-if (!(process.env.GI_TOKEN || process.env.GITHUB_TOKEN)) {
+// we really need a GH_TOKEN or GITHUB_TOKEN b/c api request limiting
+if (!(process.env.GH_TOKEN || process.env.GITHUB_TOKEN)) {
   error(`Either a GITHUB_TOKEN or GI_TOKEN environment variable is required to interact with the Github API.`);
   process.exit(1);
 }
