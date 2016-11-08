@@ -252,9 +252,15 @@ export default class Version {
     }
 
     if (this.options.changelog) {
-      this.appendChangeLog(newVersion, lastChange);
+      let appendSuccess = true;
+      try {
+        this.appendChangeLog(newVersion, lastChange);
+      } catch (err) {
+        debug.warn("Skipping appending to CHANGELOG -- no current CHANGELOG.md found.");
+        appendSuccess = false;
+      }
 
-      if (this.shouldPush && !this.options.dryRun) {
+      if (appendSuccess && this.shouldPush && !this.options.dryRun) {
         Version.exec("git add CHANGELOG.md");
       }
     }
@@ -471,11 +477,15 @@ export default class Version {
 
     const contents = fs.readFileSync("CHANGELOG.md", "utf8", (err, data) => {
       if (err) {
-        debug.warn("Skipping appending CHANGELOG.md -- can't find a current CHANGELOG");
+        throw err;
       }
 
       return data;
     });
+
+    if (!contents) {
+      return debug.warn(`Skipping appending CHANGELOG.md -- can't find a current CHANGELOG"`);
+    }
 
     const lines = contents.split("\n");
 
