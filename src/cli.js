@@ -26,6 +26,18 @@ const cli = meow(`
   default: Version.defaultOptions,
 });
 
+// we really need a GI_TOKEN or GITHUB_TOKEN b/c api request limiting
+if (!(process.env.GI_TOKEN || process.env.GITHUB_TOKEN)) {
+  error(`Either a GITHUB_TOKEN or GI_TOKEN environment variable is required to interact with the Github API.`);
+  process.exit(1);
+}
+
+// if the user is publishing to NPM, they need an NPM_TOKEN
+if (cli.flags.publish && !process.env.NPM_TOKEN) {
+  error(`If specifying --publish, the NPM_TOKEN environment variable needs to be set.`);
+  process.exit(1);
+}
+
 const validEnvironment = process.env.CI || cli.flags.force || cli.flags.dryRun;
 const hasRequiredFlags = cli.flags.init || cli.flags.bump || cli.flags.changelog;
 
