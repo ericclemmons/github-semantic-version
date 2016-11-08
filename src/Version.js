@@ -1,9 +1,8 @@
 import { EOL } from "os";
 import { execSync } from "child_process";
-import { find, first, flattenDeep, join, orderBy, reverse } from "lodash";
+import { find, flattenDeep, join, orderBy, reverse } from "lodash";
 import fs from "fs-extra";
 import moment from "moment";
-import objectPath from "object-path";
 import path from "path";
 import * as debug from "./debug";
 
@@ -18,11 +17,17 @@ export default class Version {
   static INCREMENT_MINOR = "minor";
   static INCREMENT_PATCH = "patch";
 
-  constructor(pkg, options) {
-    this.pkg = pkg;
+  constructor(config, options) {
+    this.config = config;
     this.options = {
       ...Version.defaultOptions,
       ...options,
+    };
+
+    this.incrementMap = {
+      [this.config["major-label"]]: Version.INCREMENT_MAJOR,
+      [this.config["minor-label"]]: Version.INCREMENT_MINOR,
+      [this.config["patch-label"]]: Version.INCREMENT_PATCH,
     };
 
     const branch = Version.getBranch();
@@ -35,7 +40,7 @@ export default class Version {
     debug.info("Current branch: %s", branch);
     debug.info("Release branch: %s", this.options.branch);
 
-    this.shouldPush = (this.options.repo || this.options.publish);
+    this.shouldPush = (this.options.push || this.options.publish);
     this.shouldPublish = this.options.publish;
 
     if (this.options.dryRun) {
@@ -160,7 +165,7 @@ export default class Version {
   }
 
   // returns the PR or commit with the increment level attached
-  static async getLastChangeWithIncrement() {
+  async getLastChangeWithIncrement() {
     const pr = Version.getLastPullRequest();
 
     if (!pr) {
@@ -175,11 +180,11 @@ export default class Version {
       return commit;
     }
 
-    return await Version.getIncrementFromPullRequest(pr);
+    return await this.getIncrementFromPullRequest(pr);
   }
 
   // returns a pull request with increment level noted
-  static async getIncrementFromPullRequest(number) {
+  async getIncrementFromPullRequest(number) {
     const githubapi = new GithubAPI(Version.getUserRepo());
     const prDetails = await githubapi.getPullRequest(number);
     prDetails.labels = await githubapi.getIssueLabels(number);
@@ -191,7 +196,7 @@ export default class Version {
       return prDetails;
     }
 
-    const increment = Version.getIncrementFromIssueLabels(prDetails);
+    const increment = this.getIncrementFromIssueLabels(prDetails);
 
     if (increment) {
       debug.info(`Found ${increment} label on PR #${number}.`);
@@ -200,19 +205,19 @@ export default class Version {
       return prDetails;
     }
 
-    debug.warn(`No "Version:" labels found on PR #${number}. Defaulting to ${Version.INCREMENT_PATCH}.`);
+    debug.warn(`No labels found on PR #${number}. Defaulting to ${Version.INCREMENT_PATCH}.`);
     prDetails.increment = Version.INCREMENT_PATCH;
 
     return prDetails;
   }
 
   async increment() {
-    const lastChange = await Version.getLastChangeWithIncrement();
+    const lastChange = await this.getLastChangeWithIncrement();
     const cmd = `npm version ${lastChange.increment} --no-git-tag-version`;
     const branch = Version.getBranch();
-    const newVersion = Version.incrementVersion(lastChange.increment, this.pkg.version);
+    const newVersion = Version.incrementVersion(lastChange.increment, this.config.version);
 
-    debug.info(`Bumping v${this.pkg.version} with ${lastChange.increment} release...`);
+    debug.info(`Bumping v${this.config.version} with ${lastChange.increment} release...`);
 
     // override the git user/email based on last commit
     if (process.env.CI && !this.options.dryRun) {
@@ -263,7 +268,7 @@ export default class Version {
   async publish() {
     const cmd = "npm publish";
 
-    if (this.pkg.private) {
+    if (this.config.private) {
       return debug.warn(`Private package! Skipping ${cmd}...`);
     }
 
@@ -395,24 +400,24 @@ export default class Version {
     }
   }
 
-  static getIncrementFromIssueLabels(issue) {
+  getIncrementFromIssueLabels(issue) {
+    const regex = new RegExp(`^${this.config["major-label"]}|^${this.config["minor-label"]}|^${this.config["patch-label"]}`);
     // commits won't have labels property
     return issue.labels ? issue.labels
       .map((label) => label.name)
-      .filter((name) => name.match(/^Version:/))
-      .map((name) => name.split("Version: ").pop().toUpperCase())
-      .map((increment) => Version[`INCREMENT_${increment}`])
+      .filter((name) => name.match(regex))
+      .map((increment) => this.incrementMap[increment])
       .shift()
       : undefined;
     ;
   }
 
-  // not static because we need the pkg option passed into the constructor
+  // not static because we need the config option passed into the constructor
   getVersionFromTimeline(timeline) {
-    let version = this.pkg.startVersion || "0.0.0";
+    let version = this.config.startVersion || "0.0.0";
 
     timeline.forEach((event) => {
-      const increment = Version.getIncrementFromIssueLabels(event);
+      const increment = this.getIncrementFromIssueLabels(event);
       version = Version.incrementVersion(increment, version);
     });
 
@@ -433,7 +438,7 @@ export default class Version {
     const allEvents = await this.getRepoTimeline();
 
     const lines = [];
-    let version = this.pkg.startVersion || "0.0.0";
+    let version = this.config.startVersion || "0.0.0";
     let lastEventDate = moment(allEvents[0].date).format("YYYY-MM-DD");
 
     allEvents.forEach((issue) => {
@@ -443,7 +448,7 @@ export default class Version {
         lines.push(`\n## ${lastEventDate}\n\n`);
       }
 
-      const increment = Version.getIncrementFromIssueLabels(issue);
+      const increment = this.getIncrementFromIssueLabels(issue);
 
       version = Version.incrementVersion(increment, version);
 
