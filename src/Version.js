@@ -533,6 +533,25 @@ export default class Version {
     Version.exec(`git tag v${version}`);
   }
 
+  static validVersionBump(oldVersion, newVersion) {
+    const oldParts = oldVersion.split(".");
+    const newParts = newVersion.split(".");
+
+    if (oldParts.length != newParts.length || oldParts.length != 3) {
+      return false;
+    }
+
+    if (oldParts[0] > newParts[0]) {
+      return false;
+    }
+
+    if (oldParts[1] > newParts[1]) {
+      return false;
+    }
+
+    return oldParts[2] < newParts[2];
+  }
+
   // meant to be used after a successful CI build.
   async release() {
     await this.increment();
@@ -550,6 +569,10 @@ export default class Version {
   async refresh() {
     const version = await this.calculateCurrentVersion();
     const changeLog = await this.getChangeLogContents();
+
+    if (!Version.validVersionBump(this.config.version, version)) {
+      throw new Error(`The current version listed in package.json (${this.config.version}) is >= the calculated version (${version})`);
+    }
 
     this.writeChangeLog(changeLog);
 
