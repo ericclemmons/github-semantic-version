@@ -7,6 +7,11 @@
     "dist",
     "labels.json"
   ],
+  "gsv": {
+  	"major-label": "Version: Major",
+  	"minor-label": "Version: Minor",
+  	"patch-label": "Version: Patch"
+  },
   "scripts": {
     "predist": "rimraf dist",
     "dist": "babel src -d dist",
