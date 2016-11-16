@@ -551,15 +551,15 @@ export default class Version {
       return false;
     }
 
-    if (oldParts[0] > newParts[0]) {
-      return false;
+    if (newParts[0] > oldParts[0]) {
+      return true;
+    } else if (newParts[0] === oldParts[0] && newParts[1] > oldParts[1]) {
+      return true;
+    } else if (newParts[0] === oldParts[0] && newParts[1] === oldParts[1] && newParts[2] > oldParts[2]) {
+      return true;
     }
 
-    if (oldParts[1] > newParts[1]) {
-      return false;
-    }
-
-    return oldParts[2] < newParts[2];
+    return false;
   }
 
   // meant to be used after a successful CI build.
