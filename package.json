@@ -1,6 +1,6 @@
 {
   "name": "github-semantic-version",
-  "version": "4.0.14",
+  "version": "5.0.0",
   "description": "Automated semantic version releases powered by Github Issues.",
   "bin": "dist/cli.js",
   "files": [
@@ -8,9 +8,10 @@
     "labels.json"
   ],
   "gsv": {
-  	"major-label": "Version: Major",
-  	"minor-label": "Version: Minor",
-  	"patch-label": "Version: Patch"
+    "startVersion": "2.0.0",
+    "major-label": "Version: Major",
+    "minor-label": "Version: Minor",
+    "patch-label": "Version: Patch"
   },
   "scripts": {
     "predist": "rimraf dist",
