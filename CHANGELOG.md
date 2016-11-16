@@ -3,9 +3,10 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## 2016-11-16 - [5.0.1 - current version]
+## 2016-11-16 - [5.0.2 - current version]
 
-- 5.0.1 - ([9](https://github.com/ericclemmons/github-semantic-version/pull/9)) - Looks like the travis build is failing (in this repo) (@daveashworth)
+- 5.0.2 - ([6f79dff](https://github.com/ericclemmons/github-semantic-version/commit/6f79dff7b328cfe156237da582986f5f7c7126f2)) - fixes a bug getting the latest commit message (@daveashworth)
+- 5.0.1 - ([9](https://github.com/ericclemmons/github-semantic-version/pull/9)) - Looks like the travis build is failing (in this repo) (@comamitc)
 
 ## 2016-11-11
 
@@ -104,4 +105,3 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## 2015-12-29
 
 - 2.0.1 - ([e6e695c](https://github.com/ericclemmons/github-semantic-version/commit/e6e695cad33e3c9467a682e893398348eeadaaa1)) - Initial commit (@ericclemmons)
-
