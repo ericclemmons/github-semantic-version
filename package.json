@@ -9,9 +9,9 @@
   ],
   "gsv": {
     "startVersion": "2.0.0",
-  	"major-label": "Version: Major",
-  	"minor-label": "Version: Minor",
-  	"patch-label": "Version: Patch"
+    "major-label": "Version: Major",
+    "minor-label": "Version: Minor",
+    "patch-label": "Version: Patch"
   },
   "scripts": {
     "predist": "rimraf dist",
