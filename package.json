@@ -16,7 +16,7 @@
   "scripts": {
     "predist": "rimraf dist",
     "dist": "babel src -d dist",
-    "release": "node dist/cli.js",
+    "release": "node dist/cli.js --bump --changelog --push --publish",
     "prepublish": "npm run dist",
     "test": "mocha",
     "test:watch": "mocha --watch"
