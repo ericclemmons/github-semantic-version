@@ -222,9 +222,10 @@ export default class Version {
     // override the git user/email based on last commit
     if (process.env.CI && !this.options.dryRun) {
       const range = Version.getCommitRange();
-      const commit = Version.exec(`git log -n1 --format='%an|%ae|%s' ${range}`);
+      const commit = Version.exec(`git log -n1 --format='%an|%ae|%s' ${range}`).shift();
 
       if (!commit) {
+        debug.warn("No merge commits found between: %s", range);
         throw new Error(`No commits found in ${range}`);
       }
 
