@@ -32,8 +32,8 @@ export default class Version {
 
     const branch = Version.getBranch();
 
-    // force dry-run when not on the release-branch
-    if (branch !== this.options.branch) {
+    // force dry-run when not on the release-branch and !this.options.init
+    if (!this.options.init && branch !== this.options.branch) {
       this.options.dryRun = true;
     }
 

@@ -39,7 +39,7 @@ if (cli.flags.publish && !process.env.NPM_TOKEN) {
 }
 
 const validEnvironment = process.env.CI || cli.flags.force || cli.flags.dryRun;
-const hasRequiredFlags = cli.flags.init || cli.flags.bump || cli.flags.changelog;
+const hasRequiredFlags = cli.flags.bump || cli.flags.changelog;
 
 const packageOptions = getOptionsFromFile("./package.json");
 const configOptions = packageOptions.gsv || getOptionsFromFile("./gsv.json");
@@ -63,7 +63,7 @@ const versionOptions = {
 };
 
 // run release only in CI environment. don't run complete changelog generation in CI.
-if (validEnvironment && hasRequiredFlags) {
+if (validEnvironment && hasRequiredFlags || cli.flags.init) {
   const version = new Version(versionOptions, cli.flags);
 
   if (cli.flags.init) {
