@@ -8,6 +8,7 @@
     "labels.json"
   ],
   "gsv": {
+    "startVersion": "2.0.0",
   	"major-label": "Version: Major",
   	"minor-label": "Version: Minor",
   	"patch-label": "Version: Patch"
@@ -15,7 +16,7 @@
   "scripts": {
     "predist": "rimraf dist",
     "dist": "babel src -d dist",
-    "release": "node dist/cli.js --bump --push --publish",
+    "release": "node dist/cli.js --bump --changelog --push --publish",
     "prepublish": "npm run dist",
     "test": "mocha",
     "test:watch": "mocha --watch"
