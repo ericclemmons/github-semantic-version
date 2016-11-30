@@ -1,12 +1,16 @@
-import { EOL } from "os";
-import { execSync } from "child_process";
+import chalk from "chalk";
 import { find, flattenDeep, join, orderBy, reverse } from "lodash";
 import fs from "fs-extra";
+import Listr from "listr";
 import moment from "moment";
-import path from "path";
-import * as debug from "./debug";
+import ora from "ora";
 
+import * as debug from "./debug";
+import Utils from "./Utils";
 import GithubAPI from "./Github";
+
+const DRY_RUN_MSG = "The --dry-run option was passed";
+const NO_PUSH_MSG = "Neither --push or --publish options were passed";
 
 export default class Version {
   static defaultOptions = {
@@ -30,7 +34,9 @@ export default class Version {
       [this.config["patch-label"]]: Version.INCREMENT_PATCH,
     };
 
-    const branch = Version.getBranch();
+    this.taskList = new Listr();
+
+    const branch = Utils.getBranch();
 
     // force dry-run when not on the release-branch and !this.options.init
     if (!this.options.init && branch !== this.options.branch) {
@@ -56,124 +62,16 @@ export default class Version {
     }
   }
 
-  static exec(cmd, options = {}) {
-    debug.info(`Executing: ${cmd}`);
-
-    // Execute command, split lines, & trim empty ones
-    const output = execSync(cmd, {
-      env: process.env,
-      ...options,
-    });
-
-    return (output || "")
-      .toString()
-      .split(EOL)
-      .filter(Boolean)
-    ;
-  }
-
-  static getBranch() {
-    const branch = (
-      process.env.BRANCH
-      ||
-      process.env.CIRCLE_BRANCH
-      ||
-      process.env.TRAVIS_BRANCH
-    );
-
-    if (branch) {
-      return branch;
-    }
-
-    const headFile = path.join(process.cwd(), ".git", "HEAD");
-    const headContents = fs.readFileSync(headFile, "utf8");
-    const [ _, name ] = headContents.match(/ref: refs\/heads\/([^\n]+)/) || [];
-
-    return name;
-  }
-
-  static getCommitRange() {
-    return [
-      Version.getLatestTag() || Version.getInitialCommit(),
-      "HEAD"
-    ].join("..");
-  }
-
-  static getInitialCommit() {
-    return Version.exec("git log --format=%h --max-parents=0 HEAD")
-      .filter(Boolean)
-      .pop()
-    ;
-  }
-
-  static getLastCommit() {
-    return Version.exec("git log -1 --format=%h HEAD")
-      .filter(Boolean)
-      .pop()
-    ;
-  }
-
-  static getLastPullRequest() {
-    const range = Version.getCommitRange();
-    const commit = Version.exec(`git log --merges -n1 --format='%an|%ae|%s' ${range}`).shift();
-
-    if (!commit) {
-      debug.warn("No merge commits found between: %s", range);
-      return null;
-    }
-
-    const [ name, email, message ] = commit.split("|");
-
-    if (!message) {
-      return debug.error(`Could not parse name, email, & message from: ${commit}`);
-    }
-
-    const [ , pr ] = message.match(/Merge pull request #(\d+)/) || [];
-
-    return pr;
-  }
-
-  static getLatestTag() {
-    const tag = Version.exec("git fetch --tags && git tag -l v*")
-      .filter(function(tag) {
-        return tag.match(/^v(\d+)\.(\d+)\.(\d)/);
-      })
-      .pop()
-    ;
-
-    if (tag) {
-      debug.info("Latest tag: %s", tag);
-    } else {
-      debug.warn("No tags found");
-    }
-
-    return tag || null;
-  }
-
-  static getUserRepo() {
-    const [ user, repo ] = Version.exec("git config --get remote.origin.url")
-      .shift()
-      .replace(".git", "")
-      .split(/\/|:/)
-      .slice(-2)
-    ;
-
-    debug.info("User: %s", user);
-    debug.info("Repo: %s", repo);
-
-    return { user, repo };
-  }
-
   // returns the PR or commit with the increment level attached
   async getLastChangeWithIncrement() {
-    const pr = Version.getLastPullRequest();
+    const pr = Utils.getLastPullRequest();
 
     if (!pr) {
       debug.warn(`Only commits found. Defaulting to ${Version.INCREMENT_PATCH}.`);
-      const commitSHA = Version.getLastCommit();
+      const commitSHA = Utils.getLastCommit();
 
       // get the last commit from github
-      const githubapi = new GithubAPI(Version.getUserRepo());
+      const githubapi = new GithubAPI(Utils.getUserRepo());
       const commit = await githubapi.getCommit(commitSHA);
       commit.increment = Version.INCREMENT_PATCH;
 
@@ -185,7 +83,7 @@ export default class Version {
 
   // returns a pull request with increment level noted
   async getIncrementFromPullRequest(number) {
-    const githubapi = new GithubAPI(Version.getUserRepo());
+    const githubapi = new GithubAPI(Utils.getUserRepo());
     const prDetails = await githubapi.getPullRequest(number);
     prDetails.labels = await githubapi.getIssueLabels(number);
 
@@ -212,17 +110,18 @@ export default class Version {
   }
 
   async increment() {
+    const spinner = ora("Getting last change and determining the new version").start();
     const lastChange = await this.getLastChangeWithIncrement();
-    const cmd = `npm version ${lastChange.increment} --no-git-tag-version`;
-    const branch = Version.getBranch();
-    const newVersion = Version.incrementVersion(lastChange.increment, this.config.version);
+    const branch = Utils.getBranch();
+    const newVersion = Utils.incrementVersion(lastChange.increment, this.config.version);
+    spinner.succeed();
 
     debug.info(`Bumping v${this.config.version} with ${lastChange.increment} release...`);
 
     // override the git user/email based on last commit
     if (process.env.CI && !this.options.dryRun) {
-      const range = Version.getCommitRange();
-      const commit = Version.exec(`git log -n1 --format='%an|%ae|%s' ${range}`).shift();
+      const range = Utils.getCommitRange();
+      const commit = Utils.exec(`git log -n1 --format='%an|%ae|%s' ${range}`).shift();
 
       if (!commit) {
         debug.warn("No merge commits found between: %s", range);
@@ -231,26 +130,65 @@ export default class Version {
 
       const [ name, email, message ] = commit.split("|");
 
-      debug.info(`Overriding user.name to ${name}`);
-      Version.exec(`git config user.name "${name}"`);
-
-      debug.info(`Overriding user.email to ${email}`);
-      Version.exec(`git config user.email "${email}"`);
+      this.taskList.add({
+        skip: () => {
+          if (this.options.dryRun) {
+            return DRY_RUN_MSG;
+          }
+        },
+        title: "Overriding default git user/email options",
+        task: () => {
+          return new Listr([
+            {
+              title: `Overriding user.name to ${name}`,
+              task: () => Utils.exec(`git config user.name "${name}"`),
+            },
+            {
+              title: `Overriding user.email to ${email}`,
+              task: () => Utils.exec(`git config user.email "${email}"`),
+            },
+          ]);
+        }
+      });
     }
 
-    if (this.shouldPush && !this.options.dryRun) {
-      Version.exec(`git checkout ${branch}`);
-    }
+    this.taskList.add({
+      skip: () => {
+        if (!this.shouldPush) {
+          return NO_PUSH_MSG;
+        }
 
-    if (!this.options.dryRun) {
-      Version.exec(cmd, { stdio: "ignore" });
-    } else {
-      debug.warn(`[DRY RUN] Executing ${cmd}`);
-    }
+        if (this.options.dryRun) {
+          return DRY_RUN_MSG;
+        }
+      },
+      title: `Checking out the ${branch} branch`,
+      task: () => Utils.exec(`git checkout ${branch}`),
+    });
 
-    if (this.shouldPush && !this.options.dryRun) {
-      Version.exec("git add package.json");
-    }
+    this.taskList.add({
+      skip: () => {
+        if (this.options.dryRun) {
+          return DRY_RUN_MSG;
+        }
+      },
+      title: "Bumping the package version",
+      task: () => Utils.exec(`npm version ${lastChange.increment} --no-git-tag-version`, { stdio: "ignore" }),
+    });
+
+    this.taskList.add({
+      skip: () => {
+        if (!this.shouldPush) {
+          return NO_PUSH_MSG;
+        }
+
+        if (this.options.dryRun) {
+          return DRY_RUN_MSG;
+        }
+      },
+      title: "Add package.json to commit list",
+      task: () => Utils.exec("git add package.json"),
+    });
 
     if (this.options.changelog) {
       let appendSuccess = true;
@@ -261,84 +199,94 @@ export default class Version {
         appendSuccess = false;
       }
 
-      if (appendSuccess && this.shouldPush && !this.options.dryRun) {
-        Version.exec("git add CHANGELOG.md");
-      }
+      this.taskList.add({
+        skip: () => {
+          if (!appendSuccess) {
+            return "Writing to the CHANGELOG failed";
+          }
+
+          if (!this.shouldPush) {
+            return NO_PUSH_MSG;
+          }
+
+          if (this.options.dryRun) {
+            return DRY_RUN_MSG;
+          }
+        },
+        title: "Addding CHANGELOG.md to the commit list",
+        task: () => Utils.exec("git add CHANGELOG.md"),
+      });
     }
 
-    if (this.shouldPush && !this.options.dryRun) {
-      Version.exec(`git commit -m "Automated release: v${newVersion}\n\n[ci skip]"`);
-      Version.exec(`git tag v${newVersion}`);
-    }
+    this.taskList.add({
+      skip: () => {
+        if (!this.shouldPush) {
+          return NO_PUSH_MSG;
+        }
+
+        if (this.options.dryRun) {
+          return DRY_RUN_MSG;
+        }
+      },
+      title: "Committing current changes and tagging new version",
+      task: () => {
+        return new Listr([
+          {
+            title: "Committing current changes",
+            task: () => Utils.exec(`git commit -m "Automated release: v${newVersion}\n\n[ci skip]"`),
+          },
+          {
+            title: `Tagging the new version v${newVersion}`,
+            task: () => Utils.exec(`git tag v${newVersion}`),
+          },
+        ]);
+      }
+    })
   }
 
   async publish() {
-    const cmd = "npm publish";
+    this.taskList.add({
+      skip: () => {
+        if (this.config.private) {
+          return "This package is marked private";
+        }
 
-    if (this.config.private) {
-      return debug.warn(`Private package! Skipping ${cmd}...`);
-    }
-
-    if (this.options.dryRun) {
-      return debug.warn(`[DRY RUN] ${cmd}`);
-    }
-
-    if (process.env.CI && process.env.NPM_TOKEN) {
-      debug.info("Writing NPM_TOKEN to ~/.npmrc...");
-      Version.exec('echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc');
-    }
-
-    Version.exec(cmd);
+        if (this.options.dryRun) {
+          return DRY_RUN_MSG;
+        }
+      },
+      title: "Publishing to NPM",
+      task: () => Utils.exec("npm publish"),
+    });
   }
 
   async push() {
     if (process.env.CI && process.env.GH_TOKEN) {
-      const { user, repo } = Version.getUserRepo();
+      const { user, repo } = Utils.getUserRepo();
       const token = '${GH_TOKEN}';
       const origin = `https://${user}:${token}@github.com/${user}/${repo}.git`;
 
       debug.info(`Explicitly setting git origin to: ${origin}`);
 
-      Version.exec(`git remote set-url origin ${origin}`);
+      this.taskList.add({
+        title: `Explicitly setting git origin to: ${origin}`,
+        task: () => Utils.exec(`git remote set-url origin ${origin}`),
+      });
     }
 
-    const cmd = "git push origin master --tags";
-
-    if (this.options.dryRun) {
-      debug.warn(`[DRY RUN] Executing ${cmd}`);
-    } else {
-      Version.exec(cmd, { stdio: "ignore" });
-    }
-  }
-
-  static sortItems(issues, afterDate, sortBy = "date", direction = "desc") {
-    if (!issues) {
-      return [];
-    }
-
-    const sorted = orderBy(
-      issues
-        .filter((pr) => afterDate ? (moment(pr.closed_at).isAfter(moment(afterDate))) : true)
-      ,
-      [sortBy], // sortBy
-      [direction], // direction
-    )
-
-    return sorted;
-  }
-
-  static getChangeLogHeader() {
-    const headerLines = [];
-
-    headerLines.push("# Change Log\n");
-    headerLines.push("All notable changes to this project will be documented in this file.\n\n");
-    headerLines.push("This project adheres to [Semantic Versioning](http://semver.org/).\n\n");
-
-    return join(headerLines,"");
+    this.taskList.add({
+      skip: () => {
+        if (this.options.dryRun) {
+          return DRY_RUN_MSG;
+        }
+      },
+      title: "Pushing changes to master",
+      task: () => Utils.exec("git push origin master --tags", { stdio: "ignore" }),
+    });
   }
 
   async getPullRequestCommits(prs) {
-    const githubapi = new GithubAPI(Version.getUserRepo());
+    const githubapi = new GithubAPI(Utils.getUserRepo());
 
     const prCommits = prs.map(async (pr) => {
       const commits = await githubapi.getCommitsFromPullRequest(pr.number);
@@ -354,7 +302,7 @@ export default class Version {
       return this.timeline;
     }
 
-    const githubapi = new GithubAPI(Version.getUserRepo());
+    const githubapi = new GithubAPI(Utils.getUserRepo());
     debug.info(`Fetching all merged pull requests for the repo...`);
     const allIssues = await githubapi.searchIssues({ state: "closed", type: "pr", is: "merged" });
     debug.info(`Merged pull requests fetched: ${allIssues.length}`);
@@ -392,21 +340,6 @@ export default class Version {
     return theTimeline;
   }
 
-  static incrementVersion(increment, version) {
-    if (typeof version === "string") {
-        version = version.split(".").map((v) => Number(v));
-    }
-
-    switch(increment) {
-      case "major":
-        return [ version[0] + 1, 0, 0 ].join(".");
-      case "minor":
-        return [ version[0], version[1] + 1, 0 ].join(".");
-      default:
-        return [ version[0], version[1], version[2] + 1 ].join(".");
-    }
-  }
-
   getIncrementFromIssueLabels(issue) {
     const regex = new RegExp(`^${this.config["major-label"]}|^${this.config["minor-label"]}|^${this.config["patch-label"]}`);
     // commits won't have labels property
@@ -425,23 +358,15 @@ export default class Version {
 
     timeline.forEach((event) => {
       const increment = this.getIncrementFromIssueLabels(event);
-      version = Version.incrementVersion(increment, version);
+      version = Utils.incrementVersion(increment, version);
     });
 
     return version;
   }
 
-  static getChangeLogLine(version, issue) {
-    const issueNumber = issue.number ? `[${issue.number}]` : `[${issue.sha.slice(0,7)}]`;
-    const issueUrl = `(${issue.url})`;
-    const title = `${issue.title ? issue.title : issue.message.replace(/\n/g, " ")}`;
-    const user = issue.user ? `(@${issue.user})` : `(${issue.userName})`;
-
-    return `- ${version} - (${issueNumber}${issueUrl}) - ${title} ${user}`;
-  }
-
   async getChangeLogContents() {
-    const githubapi = new GithubAPI(Version.getUserRepo());
+    const spinner = ora("Generating the CHANGELOG contents").start();
+    const githubapi = new GithubAPI(Utils.getUserRepo());
     const allEvents = await this.getRepoTimeline();
 
     const lines = [];
@@ -457,25 +382,28 @@ export default class Version {
 
       const increment = this.getIncrementFromIssueLabels(issue);
 
-      version = Version.incrementVersion(increment, version);
+      version = Utils.incrementVersion(increment, version);
 
-      lines.push(`${Version.getChangeLogLine(version, issue)}\n`);
+      lines.push(`${Utils.getChangeLogLine(version, issue)}\n`);
 
       lastEventDate = currentEventDate;
     });
 
     lines.push(`## ${lastEventDate} - [${version} - current version]\n\n`);
 
-    lines.push(Version.getChangeLogHeader());
+    lines.push(Utils.getChangeLogHeader());
+
+    spinner.succeed();
 
     return reverse(lines);
   }
 
   appendChangeLog(newVersion, lastChange) {
     if (this.options.dryRun) {
-      return debug.warn(`[DRY RUN] appending "${Version.getChangeLogLine(newVersion, lastChange)}" to CHANGELOG`);
+      return debug.warn(`[DRY RUN] appending "${Utils.getChangeLogLine(newVersion, lastChange)}" to CHANGELOG`);
     }
 
+    const spinner = ora("Appending latest change to CHANGELOG contents").start();
     const contents = fs.readFileSync("CHANGELOG.md", "utf8", (err, data) => {
       if (err) {
         throw err;
@@ -493,7 +421,7 @@ export default class Version {
     let newLines = lines.slice(0,5);
     newLines.push(`## ${moment().format("YYYY-MM-DD")} - [${newVersion} - current version]`);
     newLines.push("");
-    newLines.push(Version.getChangeLogLine(newVersion, lastChange));
+    newLines.push(Utils.getChangeLogLine(newVersion, lastChange));
 
     // if latest change is the same date
     if(moment(lines[5].slice(3,13)).isSame(moment(),"day")) {
@@ -504,13 +432,19 @@ export default class Version {
         newLines = newLines.concat(lines.slice(6));
     }
 
+    spinner.succeed();
     this.writeChangeLog(newLines.map((line) => `${line}\n`));
   }
 
   async calculateCurrentVersion() {
+    const spinner = ora("Calculating the repo's current version").start();
     const allEvents = await this.getRepoTimeline();
 
-    return this.getVersionFromTimeline(allEvents);
+    const version = this.getVersionFromTimeline(allEvents);
+
+    spinner.succeed();
+
+    return version;
   }
 
   writeChangeLog(lines) {
@@ -519,48 +453,56 @@ export default class Version {
       return debug.warn(join(lines, ""));
     }
 
+    const spinner = ora("Writing out the CHANGELOG contents");
+
     fs.writeFileSync("CHANGELOG.md", join(lines, ""), { encoding: "utf8" }, (err) => {
       if (err) {
+        spinner.fail();
         throw new Error("Problem writing CHANGELOG.md to file!");
       }
     });
+    spinner.succeed();
   }
 
   commitRefreshedChanges(version) {
-    const cmd = `npm version ${version} --no-git-tag-version`;
+    const branch = Utils.getBranch();
 
-    if (this.options.dryRun) {
-      return debug.warn(`[DRY RUN] Executing ${cmd}`);
-    }
-
-    const branch = Version.getBranch();
-
-    Version.exec(`git checkout ${branch}`);
-    Version.exec(cmd, { stdio: "ignore" });
-    Version.exec("git add package.json");
-    Version.exec("git add CHANGELOG.md");
-
-    Version.exec(`git commit -m "Automated release: v${version}\n\n[ci skip]"`);
-    Version.exec(`git tag v${version}`);
-  }
-
-  static validVersionBump(oldVersion, newVersion) {
-    const oldParts = oldVersion.split(".");
-    const newParts = newVersion.split(".");
-
-    if (oldParts.length != newParts.length || oldParts.length != 3) {
-      return false;
-    }
-
-    if (newParts[0] > oldParts[0]) {
-      return true;
-    } else if (newParts[0] === oldParts[0] && newParts[1] > oldParts[1]) {
-      return true;
-    } else if (newParts[0] === oldParts[0] && newParts[1] === oldParts[1] && newParts[2] > oldParts[2]) {
-      return true;
-    }
-
-    return false;
+    this.taskList.add({
+      skip: () => {
+        if (this.options.dryRun) {
+          return DRY_RUN_MSG;
+        }
+      },
+      title: "Bumping package version & committing changes",
+      task: () => {
+        return new Listr([
+          {
+            title: `Checking out ${branch}`,
+            task: () => Utils.exec(`git checkout ${branch}`),
+          },
+          {
+            title: "Bumping package version",
+            task: () => Utils.exec(`npm version ${version} --no-git-tag-version`, { stdio: "ignore" }),
+          },
+          {
+            title: "Adding package.json to the commit list",
+            task: () => Utils.exec("git add package.json"),
+          },
+          {
+            title: "Adding CHANGELOG.md to the commit list",
+            task: () => Utils.exec("git add CHANGELOG.md"),
+          },
+          {
+            title: "Committing changes",
+            task: () => Utils.exec(`git commit -m "Automated release: v${version}\n\n[ci skip]"`),
+          },
+          {
+            title: "Creating a tag for the new changes",
+            task: () => Utils.exec(`git tag v${version}`),
+          },
+        ]);
+      }
+    });
   }
 
   // meant to be used after a successful CI build.
@@ -574,6 +516,10 @@ export default class Version {
         await this.publish();
       }
     }
+
+    this.taskList.run().catch(err => {
+      console.error(err);
+    });
   }
 
   // meant to be used as a one off refresh of the changelog generation and version calculation
@@ -581,8 +527,31 @@ export default class Version {
     const version = await this.calculateCurrentVersion();
     const changeLog = await this.getChangeLogContents();
 
-    if (!Version.validVersionBump(this.config.version, version)) {
-      throw new Error(`The current version listed in package.json (${this.config.version}) is >= the calculated version (${version})`);
+    if (!Utils.validVersionBump(this.config.version, version)) {
+      console.log(`\n${chalk.bold.red(`WARNING!`)}`);
+      console.log(`The current version listed in package.json (${chalk.bold.cyan(`${this.config.version}`)}) is > the calculated version (${chalk.bold.cyan(`${version}`)}).`);
+      console.log(`To ensure a consistent changelog, either make use of ${chalk.bold.red(`startVersion`)} in your package.json, or label existing PRs as you would expect them to affect the repo version.\n`);
+      return;
+    }
+
+    // if versions are the same:
+    // disallow the use of --push or --publish. this needs to be manual.
+    if (Utils.versionsInSync(this.config.version, version)) {
+      console.log(`\n${chalk.bold.cyan(`HEADS UP!`)}`);
+      console.log(`The current version listed in package.json is the same as the calculated version: ${chalk.bold.cyan(`${version}`)}.`);
+      console.log(`Use of --push and --publish will be ignored and you'll need to manually commit and push these changes to your repo.\n`);
+      this.shouldPush = false;
+      this.shouldPublish = false;
+    } else {
+      this.taskList.add({
+        skip: () => {
+          if (this.options.dryRun) {
+            return DRY_RUN_MSG;
+          }
+        },
+        title: "Setting the package version",
+        task: () => Utils.exec(`npm version ${version} --no-git-tag-version`, { stdio: "ignore" }),
+      });
     }
 
     this.writeChangeLog(changeLog);
@@ -595,5 +564,9 @@ export default class Version {
         await this.publish();
       }
     }
+
+    this.taskList.run().catch(err => {
+      console.error(err);
+    });
   }
 };

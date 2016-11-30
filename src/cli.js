@@ -4,7 +4,7 @@ import meow from "meow";
 import path from "path";
 import fs from "fs-extra";
 
-import { error } from "./debug";
+import Utils from "./Utils";
 import Version from "./Version";
 
 const cli = meow(`
@@ -19,8 +19,9 @@ const cli = meow(`
     --publish     Commits and pushes the changes to the repo, AND publishes the latest to NPM.
     --branch      (Default: master) Release branch, others are ignored.
     --force       By default, --bump and --changelog only work in CI environment. Override this only if you know what you're doing!
-    --debug       Output debug info about what's happening in the running process.
     --dry-run     Perform a dry-run without writing, commiting, pushing, or publishing.
+
+    debug:        Prepend DEBUG=github-semantic-version:* to the github-semantic-version command.
 `, {
 
   default: Version.defaultOptions,
@@ -28,24 +29,24 @@ const cli = meow(`
 
 // we really need a GH_TOKEN or GITHUB_TOKEN b/c api request limiting
 if (!(process.env.GH_TOKEN || process.env.GITHUB_TOKEN)) {
-  error(`Either a GITHUB_TOKEN or GH_TOKEN environment variable is required to interact with the Github API.`);
+  console.error(`Either a GITHUB_TOKEN or GH_TOKEN environment variable is required to interact with the Github API.`);
   process.exit(1);
 }
 
 // if the user is publishing to NPM, they need an NPM_TOKEN
 if (cli.flags.publish && !process.env.NPM_TOKEN) {
-  error(`If specifying --publish, the NPM_TOKEN environment variable needs to be set.`);
+  console.error(`If specifying --publish, the NPM_TOKEN environment variable needs to be set.`);
   process.exit(1);
 }
 
 const validEnvironment = process.env.CI || cli.flags.force || cli.flags.dryRun;
 const hasRequiredFlags = cli.flags.bump || cli.flags.changelog;
 
-const packageOptions = getOptionsFromFile("./package.json");
-const configOptions = packageOptions.gsv || getOptionsFromFile("./gsv.json");
+const packageOptions = Utils.getOptionsFromFile("./package.json");
+const configOptions = packageOptions.gsv || Utils.getOptionsFromFile("./gsv.json");
 
 if (!configOptions || !(configOptions["major-label"] && configOptions["minor-label"] && configOptions["patch-label"])) {
-  error(`Must specify version label config options in either a gsv.json file or a package.json entry.
+  console.error(`Must specify version label config options in either a gsv.json file or a package.json entry.
     Ex:
     {
       "major-label": "Version: Major",
@@ -59,6 +60,7 @@ if (!configOptions || !(configOptions["major-label"] && configOptions["minor-lab
 const versionOptions = {
   version: packageOptions.version,
   private: packageOptions.private || false,
+  name: packageOptions.name,
   ...configOptions
 };
 
@@ -72,18 +74,9 @@ if (validEnvironment && hasRequiredFlags || cli.flags.init) {
     version.release();
   }
 } else if (validEnvironment && !hasRequiredFlags) {
-  error("Must specify one of the following options: --init, --bump, or --changelog")
+  console.error("Must specify one of the following options: --init, --bump, or --changelog")
   cli.showHelp(1);
 } else {
-  error("Not in CI environment or incorrect usage.");
+  console.error("Not in CI environment or incorrect usage.");
   cli.showHelp(1);
-}
-
-function getOptionsFromFile(configFilePath) {
-  if (configFilePath) {
-    try {
-      const filePath = path.resolve(process.cwd(), configFilePath);
-      return fs.readJsonSync(filePath);
-    } catch (err) {}
-  }
 }

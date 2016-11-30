@@ -147,6 +147,10 @@ The flags `--bump` and `--changelog` are meant to be used in a CI environment. _
 
 Append this to see output of what _would_ happen without any writing to files, pushing to Github, or publishing to NPM.
 
+#### Debug
+
+Prepend `DEBUG=github-semantic-version:*` to the `github-semantic-version` command to show all debug output when running.
+
 ### 7. Update `package.json`
 
 ```json
