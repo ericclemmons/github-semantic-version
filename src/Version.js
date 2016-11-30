@@ -193,7 +193,7 @@ export default class Version {
       return debug.warn(`[DRY RUN] Pushing changes to master branch`);
     }
 
-    const spinner = ora("Pushing changes to Github");
+    const spinner = ora("Pushing changes to Github").start();
 
     if (process.env.CI && process.env.GH_TOKEN) {
       const { user, repo } = Utils.getUserRepo();
@@ -289,7 +289,7 @@ export default class Version {
   }
 
   async getChangeLogContents() {
-    const spinner = ora("Generating the changelog contents");
+    const spinner = ora("Generating the changelog contents").start();
     const githubapi = new GithubAPI(Utils.getUserRepo());
     const allEvents = await this.getRepoTimeline();
 
