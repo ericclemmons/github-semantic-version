@@ -1,16 +1,12 @@
 import chalk from "chalk";
 import { find, flattenDeep, join, orderBy, reverse } from "lodash";
 import fs from "fs-extra";
-import Listr from "listr";
 import moment from "moment";
 import ora from "ora";
 
 import * as debug from "./debug";
 import Utils from "./Utils";
 import GithubAPI from "./Github";
-
-const DRY_RUN_MSG = "The --dry-run option was passed";
-const NO_PUSH_MSG = "Neither --push or --publish options were passed";
 
 export default class Version {
   static defaultOptions = {
@@ -33,8 +29,6 @@ export default class Version {
       [this.config["minor-label"]]: Version.INCREMENT_MINOR,
       [this.config["patch-label"]]: Version.INCREMENT_PATCH,
     };
-
-    this.taskList = new Listr();
 
     const branch = Utils.getBranch();
 
@@ -110,11 +104,13 @@ export default class Version {
   }
 
   async increment() {
-    const spinner = ora("Getting last change and determining the new version").start();
+    const spinners = [];
+
+    spinners.push(ora("Getting last change and determining the current version").start());
     const lastChange = await this.getLastChangeWithIncrement();
     const branch = Utils.getBranch();
     const newVersion = Utils.incrementVersion(lastChange.increment, this.config.version);
-    spinner.succeed();
+    spinners[0].succeed();
 
     debug.info(`Bumping v${this.config.version} with ${lastChange.increment} release...`);
 
@@ -130,65 +126,29 @@ export default class Version {
 
       const [ name, email, message ] = commit.split("|");
 
-      this.taskList.add({
-        skip: () => {
-          if (this.options.dryRun) {
-            return DRY_RUN_MSG;
-          }
-        },
-        title: "Overriding default git user/email options",
-        task: () => {
-          return new Listr([
-            {
-              title: `Overriding user.name to ${name}`,
-              task: () => Utils.exec(`git config user.name "${name}"`),
-            },
-            {
-              title: `Overriding user.email to ${email}`,
-              task: () => Utils.exec(`git config user.email "${email}"`),
-            },
-          ]);
-        }
-      });
+      debug.info(`Overriding default git user/email options`);
+
+      Utils.exec(`git config user.name "${name}"`);
+      Utils.exec(`git config user.email "${email}"`);
     }
 
-    this.taskList.add({
-      skip: () => {
-        if (!this.shouldPush) {
-          return NO_PUSH_MSG;
-        }
+    if (this.shouldPush && !this.options.dryRun) {
+      debug.info(`Checking out the ${branch} branch`);
+      Utils.exec(`git checkout ${branch}`);
+    }
 
-        if (this.options.dryRun) {
-          return DRY_RUN_MSG;
-        }
-      },
-      title: `Checking out the ${branch} branch`,
-      task: () => Utils.exec(`git checkout ${branch}`),
-    });
+    if (!this.options.dryRun) {
+      spinners.push(ora(`Incrementing the version in package.json with ${lastChange.increment}`).start());
+      Utils.exec(`npm version ${lastChange.increment} --no-git-tag-version`, { stdio: "ignore" });
+      spinners[1].succeed();
+    } else {
+      debug.warn(`[DRY RUN] bumping package version with ${lastChange.increment}`);
+    }
 
-    this.taskList.add({
-      skip: () => {
-        if (this.options.dryRun) {
-          return DRY_RUN_MSG;
-        }
-      },
-      title: "Bumping the package version",
-      task: () => Utils.exec(`npm version ${lastChange.increment} --no-git-tag-version`, { stdio: "ignore" }),
-    });
-
-    this.taskList.add({
-      skip: () => {
-        if (!this.shouldPush) {
-          return NO_PUSH_MSG;
-        }
-
-        if (this.options.dryRun) {
-          return DRY_RUN_MSG;
-        }
-      },
-      title: "Add package.json to commit list",
-      task: () => Utils.exec("git add package.json"),
-    });
+    if (this.shouldPush && !this.options.dryRun) {
+      debug.info(`Adding package.json to commit list`);
+      Utils.exec("git add package.json");
+    }
 
     if (this.options.changelog) {
       let appendSuccess = true;
@@ -199,90 +159,54 @@ export default class Version {
         appendSuccess = false;
       }
 
-      this.taskList.add({
-        skip: () => {
-          if (!appendSuccess) {
-            return "Writing to the CHANGELOG failed";
-          }
-
-          if (!this.shouldPush) {
-            return NO_PUSH_MSG;
-          }
-
-          if (this.options.dryRun) {
-            return DRY_RUN_MSG;
-          }
-        },
-        title: "Addding CHANGELOG.md to the commit list",
-        task: () => Utils.exec("git add CHANGELOG.md"),
-      });
+      if (appendSuccess && this.shouldPush && !this.options.dryRun) {
+        debug.info(`Adding CHANGELOG.md to the commit list`);
+        Utils.exec("git add CHANGELOG.md");
+      }
     }
 
-    this.taskList.add({
-      skip: () => {
-        if (!this.shouldPush) {
-          return NO_PUSH_MSG;
-        }
-
-        if (this.options.dryRun) {
-          return DRY_RUN_MSG;
-        }
-      },
-      title: "Committing current changes and tagging new version",
-      task: () => {
-        return new Listr([
-          {
-            title: "Committing current changes",
-            task: () => Utils.exec(`git commit -m "Automated release: v${newVersion}\n\n[ci skip]"`),
-          },
-          {
-            title: `Tagging the new version v${newVersion}`,
-            task: () => Utils.exec(`git tag v${newVersion}`),
-          },
-        ]);
-      }
-    })
+    if (this.shouldPush && !this.options.dryRun) {
+      spinners.push(ora("Committing the changes and tagging a new version").start());
+      debug.info(`Committing the current changes and tagging new version`);
+      Utils.exec(`git commit -m "Automated release: v${newVersion}\n\n[ci skip]"`);
+      Utils.exec(`git tag v${newVersion}`);
+      spinners[2].succeed();
+    }
   }
 
   async publish() {
-    this.taskList.add({
-      skip: () => {
-        if (this.config.private) {
-          return "This package is marked private";
-        }
+    if (this.config.private) {
+      return debug.warn(`This package is marked private -- skipping NPM publish`);
+    }
 
-        if (this.options.dryRun) {
-          return DRY_RUN_MSG;
-        }
-      },
-      title: "Publishing to NPM",
-      task: () => Utils.exec("npm publish"),
-    });
+    if (this.options.dryRun) {
+      return debug.warn(`[DRY RUN] publishing to NPM`);
+    }
+
+    const spinner = ora("Publishing to NPM");
+    Utils.exec("npm publish");
+    spinner.succeed();
   }
 
   async push() {
+    if (this.options.dryRun) {
+      return debug.warn(`[DRY RUN] Pushing changes to master branch`);
+    }
+
+    const spinner = ora("Pushing changes to Github");
+
     if (process.env.CI && process.env.GH_TOKEN) {
       const { user, repo } = Utils.getUserRepo();
       const token = '${GH_TOKEN}';
       const origin = `https://${user}:${token}@github.com/${user}/${repo}.git`;
 
       debug.info(`Explicitly setting git origin to: ${origin}`);
-
-      this.taskList.add({
-        title: `Explicitly setting git origin to: ${origin}`,
-        task: () => Utils.exec(`git remote set-url origin ${origin}`),
-      });
+      Utils.exec(`git remote set-url origin ${origin}`)
     }
 
-    this.taskList.add({
-      skip: () => {
-        if (this.options.dryRun) {
-          return DRY_RUN_MSG;
-        }
-      },
-      title: "Pushing changes to master",
-      task: () => Utils.exec("git push origin master --tags", { stdio: "ignore" }),
-    });
+    Utils.exec("git push origin master --tags", { stdio: "ignore" });
+
+    spinner.succeed();
   }
 
   async getPullRequestCommits(prs) {
@@ -365,7 +289,7 @@ export default class Version {
   }
 
   async getChangeLogContents() {
-    const spinner = ora("Generating the CHANGELOG contents").start();
+    const spinner = ora("Generating the changelog contents");
     const githubapi = new GithubAPI(Utils.getUserRepo());
     const allEvents = await this.getRepoTimeline();
 
@@ -381,16 +305,12 @@ export default class Version {
       }
 
       const increment = this.getIncrementFromIssueLabels(issue);
-
       version = Utils.incrementVersion(increment, version);
-
       lines.push(`${Utils.getChangeLogLine(version, issue)}\n`);
-
       lastEventDate = currentEventDate;
     });
 
     lines.push(`## ${lastEventDate} - [${version} - current version]\n\n`);
-
     lines.push(Utils.getChangeLogHeader());
 
     spinner.succeed();
@@ -406,6 +326,7 @@ export default class Version {
     const spinner = ora("Appending latest change to CHANGELOG contents").start();
     const contents = fs.readFileSync("CHANGELOG.md", "utf8", (err, data) => {
       if (err) {
+        spinner.fail();
         throw err;
       }
 
@@ -413,6 +334,7 @@ export default class Version {
     });
 
     if (!contents) {
+      spinner.fail();
       return debug.warn(`Skipping appending CHANGELOG.md -- can't find a current CHANGELOG"`);
     }
 
@@ -439,9 +361,7 @@ export default class Version {
   async calculateCurrentVersion() {
     const spinner = ora("Calculating the repo's current version").start();
     const allEvents = await this.getRepoTimeline();
-
     const version = this.getVersionFromTimeline(allEvents);
-
     spinner.succeed();
 
     return version;
@@ -453,7 +373,7 @@ export default class Version {
       return debug.warn(join(lines, ""));
     }
 
-    const spinner = ora("Writing out the CHANGELOG contents");
+    const spinner = ora("Writing the contents of the changelog").start();
 
     fs.writeFileSync("CHANGELOG.md", join(lines, ""), { encoding: "utf8" }, (err) => {
       if (err) {
@@ -461,48 +381,33 @@ export default class Version {
         throw new Error("Problem writing CHANGELOG.md to file!");
       }
     });
+
     spinner.succeed();
   }
 
   commitRefreshedChanges(version) {
     const branch = Utils.getBranch();
 
-    this.taskList.add({
-      skip: () => {
-        if (this.options.dryRun) {
-          return DRY_RUN_MSG;
-        }
-      },
-      title: "Bumping package version & committing changes",
-      task: () => {
-        return new Listr([
-          {
-            title: `Checking out ${branch}`,
-            task: () => Utils.exec(`git checkout ${branch}`),
-          },
-          {
-            title: "Bumping package version",
-            task: () => Utils.exec(`npm version ${version} --no-git-tag-version`, { stdio: "ignore" }),
-          },
-          {
-            title: "Adding package.json to the commit list",
-            task: () => Utils.exec("git add package.json"),
-          },
-          {
-            title: "Adding CHANGELOG.md to the commit list",
-            task: () => Utils.exec("git add CHANGELOG.md"),
-          },
-          {
-            title: "Committing changes",
-            task: () => Utils.exec(`git commit -m "Automated release: v${version}\n\n[ci skip]"`),
-          },
-          {
-            title: "Creating a tag for the new changes",
-            task: () => Utils.exec(`git tag v${version}`),
-          },
-        ]);
-      }
-    });
+    if (this.options.dryRun) {
+      return debug.warn(`[DRY RUN] Bumping package version & committing changes`);
+    }
+
+    const spinner = ora("Committing the refreshed changes").start();
+
+    debug.info(`git checkout ${branch}`);
+    Utils.exec(`git checkout ${branch}`);
+    debug.info(`npm version ${version} --no-git-tag-version`);
+    Utils.exec(`npm version ${version} --no-git-tag-version`, { stdio: "ignore" });
+    debug.info("git add package.json");
+    Utils.exec("git add package.json");
+    debug.info("git add CHANGELOG.md");
+    Utils.exec("git add CHANGELOG.md");
+    debug.info(`git commit -m "Automated release: v${version}\n\n[ci skip]"`);
+    Utils.exec(`git commit -m "Automated release: v${version}\n\n[ci skip]"`);
+    debug.info(`git tag v${version}`);
+    Utils.exec(`git tag v${version}`);
+
+    spinner.succeed();
   }
 
   // meant to be used after a successful CI build.
@@ -516,10 +421,6 @@ export default class Version {
         await this.publish();
       }
     }
-
-    this.taskList.run().catch(err => {
-      console.error(err);
-    });
   }
 
   // meant to be used as a one off refresh of the changelog generation and version calculation
@@ -531,27 +432,31 @@ export default class Version {
       console.log(`\n${chalk.bold.red(`WARNING!`)}`);
       console.log(`The current version listed in package.json (${chalk.bold.cyan(`${this.config.version}`)}) is > the calculated version (${chalk.bold.cyan(`${version}`)}).`);
       console.log(`To ensure a consistent changelog, either make use of ${chalk.bold.red(`startVersion`)} in your package.json, or label existing PRs as you would expect them to affect the repo version.\n`);
+
       return;
     }
 
     // if versions are the same:
     // disallow the use of --push or --publish. this needs to be manual.
-    if (Utils.versionsInSync(this.config.version, version)) {
+    const versionsInSync = Utils.versionsInSync(this.config.version, version);
+
+    if (versionsInSync) {
       console.log(`\n${chalk.bold.cyan(`HEADS UP!`)}`);
       console.log(`The current version listed in package.json is the same as the calculated version: ${chalk.bold.cyan(`${version}`)}.`);
       console.log(`Use of --push and --publish will be ignored and you'll need to manually commit and push these changes to your repo.\n`);
       this.shouldPush = false;
       this.shouldPublish = false;
-    } else {
-      this.taskList.add({
-        skip: () => {
-          if (this.options.dryRun) {
-            return DRY_RUN_MSG;
-          }
-        },
-        title: "Setting the package version",
-        task: () => Utils.exec(`npm version ${version} --no-git-tag-version`, { stdio: "ignore" }),
-      });
+    }
+
+    if (!versionsInSync) {
+      if (this.options.dryRun) {
+        debug.warn(`[DRY RUN] Setting the version in package.json to ${version}`);
+      } else {
+        debug.info(`Setting the version in package.json to ${version}`);
+        const spinner = ora(`Setting the version in package.json to ${version}`).start();
+        Utils.exec(`npm version ${version} --no-git-tag-version`, { stdio: "ignore" })
+        spinner.succeed();
+      }
     }
 
     this.writeChangeLog(changeLog);
@@ -564,9 +469,5 @@ export default class Version {
         await this.publish();
       }
     }
-
-    this.taskList.run().catch(err => {
-      console.error(err);
-    });
   }
 };
