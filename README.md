@@ -117,6 +117,11 @@ of any PR. Also calculates the package version based on those PRs and commits. W
 
 _Meant to be used outside of a CI environment to generate the initial CHANGELOG._
 
+The expected workflow here is to ensure parity between the calculated version/changelog and your current repo version. Once that happens, you'll
+want to manually commit those changes (adding github-semantic-version as a dependency, the new npm scripts to run on CI success, the CHANGELOG,
+updated package.json, etc.) to master (or merge a labeled PR). Once CI builds successfully, these additions will be noted in the CHANGELOG (assuming
+that you specified the `--changelog` flag in your npm scripts).
+
 `github-semantic-version --changelog`
 
 Append the latest change to an
