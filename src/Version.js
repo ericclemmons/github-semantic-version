@@ -25,9 +25,9 @@ export default class Version {
     };
 
     this.incrementMap = {
-      [this.config["major-label"]]: Version.INCREMENT_MAJOR,
-      [this.config["minor-label"]]: Version.INCREMENT_MINOR,
-      [this.config["patch-label"]]: Version.INCREMENT_PATCH,
+      [this.config["majorLabel"]]: Version.INCREMENT_MAJOR,
+      [this.config["minorLabel"]]: Version.INCREMENT_MINOR,
+      [this.config["patchLabel"]]: Version.INCREMENT_PATCH,
     };
 
     const branch = Utils.getBranch();
@@ -269,7 +269,7 @@ export default class Version {
   }
 
   getIncrementFromIssueLabels(issue) {
-    const regex = new RegExp(`^${this.config["major-label"]}|^${this.config["minor-label"]}|^${this.config["patch-label"]}`);
+    const regex = new RegExp(`^${this.config["majorLabel"]}|^${this.config["minorLabel"]}|^${this.config["patchLabel"]}`);
     // commits won't have labels property
     return issue.labels ? issue.labels
       .map((label) => label.name)
