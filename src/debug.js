@@ -1,7 +1,5 @@
 import debug from "debug";
 
-debug.enable("github-semantic-version:*");
-
 export const error = debug("github-semantic-version:error");
 error.log = console.error.bind(console);
 
