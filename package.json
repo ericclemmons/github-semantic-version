@@ -2,7 +2,10 @@
   "name": "github-semantic-version",
   "version": "5.0.2",
   "description": "Automated semantic version releases powered by Github Issues.",
-  "bin": "dist/cli.js",
+  "bin": {
+    "github-semantic-version": "dist/cli.js",
+    "gsv": "dist/cli.js"
+  },
   "files": [
     "dist",
     "labels.json"
