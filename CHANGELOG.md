@@ -3,7 +3,11 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## 2016-12-05 - [6.0.0 - current version]
+## 2017-02-02 - [6.0.1 - current version]
+
+- 6.0.1 - ([15](https://github.com/ericclemmons/github-semantic-version/pull/15)) - .gsvrc instead of gsv.json (@daveashworth)
+
+## 2016-12-05
 
 - 6.0.0 - ([11](https://github.com/ericclemmons/github-semantic-version/pull/11)) - init fails when calculated version equal to the current version (@daveashworth)
 
@@ -109,4 +113,5 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## 2015-12-29
 
 - 2.0.1 - ([e6e695c](https://github.com/ericclemmons/github-semantic-version/commit/e6e695cad33e3c9467a682e893398348eeadaaa1)) - Initial commit (@ericclemmons)
+
 
