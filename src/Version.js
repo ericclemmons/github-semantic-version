@@ -65,7 +65,7 @@ export default class Version {
       const commitSHA = Utils.getLastCommit();
 
       // get the last commit from github
-      const githubapi = new GithubAPI(Utils.getUserRepo());
+      const githubapi = this.getGithubAPI();
       const commit = await githubapi.getCommit(commitSHA);
       commit.increment = Version.INCREMENT_PATCH;
 
@@ -77,7 +77,7 @@ export default class Version {
 
   // returns a pull request with increment level noted
   async getIncrementFromPullRequest(number) {
-    const githubapi = new GithubAPI(Utils.getUserRepo());
+    const githubapi = this.getGithubAPI();
     const prDetails = await githubapi.getPullRequest(number);
     prDetails.labels = await githubapi.getIssueLabels(number);
 
@@ -210,7 +210,7 @@ export default class Version {
   }
 
   async getPullRequestCommits(prs) {
-    const githubapi = new GithubAPI(Utils.getUserRepo());
+    const githubapi = this.getGithubAPI();
 
     const prCommits = prs.map(async (pr) => {
       const commits = await githubapi.getCommitsFromPullRequest(pr.number);
@@ -226,7 +226,7 @@ export default class Version {
       return this.timeline;
     }
 
-    const githubapi = new GithubAPI(Utils.getUserRepo());
+    const githubapi = this.getGithubAPI();
     debug.info(`Fetching all merged pull requests for the repo...`);
     const allIssues = await githubapi.searchIssues({ state: "closed", type: "pr", is: "merged" });
     debug.info(`Merged pull requests fetched: ${allIssues.length}`);
@@ -264,6 +264,10 @@ export default class Version {
     return theTimeline;
   }
 
+  getGithubAPI() {
+    return new GithubAPI(Utils.getUserRepo(), this.config.github);
+  }
+
   getIncrementFromIssueLabels(issue) {
     const regex = new RegExp(`^${this.config["major-label"]}|^${this.config["minor-label"]}|^${this.config["patch-label"]}`);
     // commits won't have labels property
@@ -290,7 +294,7 @@ export default class Version {
 
   async getChangeLogContents() {
     const spinner = ora("Generating the changelog contents").start();
-    const githubapi = new GithubAPI(Utils.getUserRepo());
+    const githubapi = this.getGithubAPI();
     const allEvents = await this.getRepoTimeline();
 
     const lines = [];
