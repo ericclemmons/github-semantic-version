@@ -189,6 +189,23 @@ calculate the package version of a repo. Ex:
 If you're working on a private project, you can leave out `--publish`, which
 means you have no need for your `NPM_TOKEN` either.
 
+#### github
+
+You can add a `github` object to the `gsv` section of `package.json` (or to `gsv.json`),
+which are options that will be passed to the [Github API](https://www.npmjs.com/package/github).
+
+```json
+{
+  ...
+  "gsv": {
+    "github": {
+      "host": "github.my-GHE-enabled-company.com"
+    },
+    ...
+  },
+  ...
+}
+```
 
 ### License
 

@@ -1,7 +1,7 @@
 import Github from "github";
 
 export default class GithubAPI {
-  constructor(userRepo) {
+  constructor(userRepo, apiOptions = {}) {
     this.defaultOptions = {
       owner: userRepo.user,
       repo: userRepo.repo,
@@ -9,6 +9,7 @@ export default class GithubAPI {
 
     this.github = new Github({
       version: "3.0.0",
+      ...apiOptions,
     });
 
     // this buys you 5000 requests an hour in all but the Search API, where you get 30 requests/min
