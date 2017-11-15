@@ -200,9 +200,8 @@ export default class Version {
 
     if (process.env.CI && process.env.GH_TOKEN) {
       const { user, repo } = Utils.getUserRepo();
+      const { protocol = 'https', host = 'github.com' } = this.config.github;
       const token = '${GH_TOKEN}';
-      const protocol = this.config.github.protocol || 'https';
-      const host = this.config.github.host || 'github.com';
       const origin = `${protocol}://${user}:${token}@${host}/${user}/${repo}.git`;
 
       debug.info(`Explicitly setting git origin to: ${origin}`);
