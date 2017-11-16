@@ -18,7 +18,10 @@ export default class Version {
   static INCREMENT_PATCH = "patch";
 
   constructor(config, options) {
-    this.config = config;
+    this.config = {
+      github: {},
+      ...config,
+    };
     this.options = {
       ...Version.defaultOptions,
       ...options,
@@ -197,8 +200,9 @@ export default class Version {
 
     if (process.env.CI && process.env.GH_TOKEN) {
       const { user, repo } = Utils.getUserRepo();
+      const { protocol = 'https', host = 'github.com' } = this.config.github;
       const token = '${GH_TOKEN}';
-      const origin = `https://${user}:${token}@github.com/${user}/${repo}.git`;
+      const origin = `${protocol}://${user}:${token}@${host}/${user}/${repo}.git`;
 
       debug.info(`Explicitly setting git origin to: ${origin}`);
       Utils.exec(`git remote set-url origin ${origin}`)
