@@ -3,7 +3,11 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## 2017-11-09 - [6.1.0 - current version]
+## 2017-11-16 - [6.1.1 - current version]
+
+- 6.1.1 - ([21](https://github.com/ericclemmons/github-semantic-version/pull/21)) - Use custom Github protocol and host (@milesj)
+
+## 2017-11-09
 
 - 6.1.0 - ([20](https://github.com/ericclemmons/github-semantic-version/pull/20)) - Pass github options to API instance. (@milesj)
 
@@ -117,6 +121,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## 2015-12-29
 
 - 2.0.1 - ([e6e695c](https://github.com/ericclemmons/github-semantic-version/commit/e6e695cad33e3c9467a682e893398348eeadaaa1)) - Initial commit (@ericclemmons)
+
 
 
 
