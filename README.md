@@ -42,23 +42,23 @@ From your repo's `Issues > Labels` section, add three labels representing the ma
 - "Version: Minor"
 - "Version: Patch"
 
-Add your label definitions to either `package.json` or to a `gsv.json` file in the base directory of your project.
+Add your label definitions to a `gsv` section of `package.json`, to a `gsv.json` file, or a `.gsvrc` file in the base directory of your project.
 
 ##### package.json example
 ```json
 "gsv": {
-  "major-label": "Version: Major",
-  "minor-label": "Version: Minor",
-  "patch-label": "Version: Patch"
+  "majorLabel": "Version: Major",
+  "minorLabel": "Version: Minor",
+  "patchLabel": "Version: Patch"
 }
 ```
 
-##### gsv.json example
+##### gsv.json or .gsvrc example
 ```json
 {
-  "major-label": "Version: Major",
-  "minor-label": "Version: Minor",
-  "patch-label": "Version: Patch"
+  "majorLabel": "Version: Major",
+  "minorLabel": "Version: Minor",
+  "patchLabel": "Version: Patch"
 }
 ```
 
@@ -179,7 +179,7 @@ calculate the package version of a repo. Ex:
   ...
   "gsv": {
     "startVersion": "2.5.0",
-    "major-label": "Version: Major",
+    "majorLabel": "Version: Major",
     ...
   },
   ...
