@@ -67,20 +67,41 @@ export default class Utils {
 
   static getLastPullRequest() {
     const range = Utils.getCommitRange();
-    const commit = Utils.exec(`git log --merges -n1 --format='%an|%ae|%s' ${range}`).shift();
 
-    if (!commit) {
+    // Merge commits
+    let commits = Utils.exec(`git log --merges -n1 --format='%an|%ae|%s' ${range}`);
+
+    if (!commits.length) {
       debug.warn("No merge commits found between: %s", range);
+      debug.info("Checking for squash commits.");
+    }
+
+    // Squash commits
+    commits = Utils.exec(`git log --format='%an|%ae|%s' ${range}`);
+
+    if (!commits.length) {
+      debug.warn("No squash commits found between: %s", range);
       return null;
     }
 
-    const [ name, email, message ] = commit.split("|");
+    // Parse and detect
+    let pr;
 
-    if (!message) {
-      return debug.error(`Could not parse name, email, & message from: ${commit}`);
+    try {
+      commits.some((commit) => {
+        const [ name, email, message ] = commit.split("|");
+
+        if (!message) {
+          throw new Error(`Could not parse name, email, & message from: ${commit}`);
+        }
+
+        [ , pr ] = message.match(/^Merge pull request #(\d+)|\(#(\d+)\)$/) || [];
+
+        return !!pr;
+      });
+    } catch (error) {
+      return debug.error(error.message);
     }
-
-    const [ , pr ] = message.match(/Merge pull request #(\d+)/) || [];
 
     return pr;
   }
