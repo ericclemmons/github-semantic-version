@@ -95,7 +95,10 @@ export default class Utils {
           throw new Error(`Could not parse name, email, & message from: ${commit}`);
         }
 
-        [ , pr ] = message.match(/^Merge pull request #(\d+)|\(#(\d+)\)$/) || [];
+        const match = message.match(/^Merge pull request #(\d+)|\(#(\d+)\)$/) || [];
+
+        // 2 = squash, 1 = merge
+        pr = match[2] || match[1];
 
         return !!pr;
       });
