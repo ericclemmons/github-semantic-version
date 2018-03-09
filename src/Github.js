@@ -1,4 +1,4 @@
-import Github from "github";
+import Github from "@octokit/rest";
 
 export default class GithubAPI {
   constructor(userRepo, apiOptions = {}) {
@@ -7,10 +7,7 @@ export default class GithubAPI {
       repo: userRepo.repo,
     };
 
-    this.github = new Github({
-      version: "3.0.0",
-      ...apiOptions,
-    });
+    this.github = new Github(apiOptions);
 
     // this buys you 5000 requests an hour in all but the Search API, where you get 30 requests/min
     const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
@@ -24,57 +21,44 @@ export default class GithubAPI {
   }
 
   async getCommit(hash) {
-    return new Promise((resolve, reject) => {
-      this.github.repos.getCommit({ ...this.defaultOptions, sha: hash }, (err, commit) => {
-        if (err) {
-          return reject(err);
-        }
-
-        return resolve({
+    return this.github.repos
+      .getCommit({ ...this.defaultOptions, sha: hash })
+      .then(({ data: commit }) => {
+        return {
           date: commit.commit.author.date,
           sha: commit.sha,
           user: commit.author ? commit.author.login : undefined,
           userName: commit.commit.author.name,
           message: commit.commit.message,
           url: commit.html_url,
-        });
+        };
       });
-    });
   }
 
   async getPullRequest(prNumber) {
-    return new Promise((resolve, reject) => {
-      this.github.pullRequests.get({ ...this.defaultOptions, number: prNumber }, (err, pr) => {
-        if (err) {
-          return reject(err);
-        }
-
-        return resolve({
+    return this.github.pullRequests
+      .get({ ...this.defaultOptions, number: prNumber })
+      .then(({ data: pr }) => {
+        return {
           date: pr.merged_at,
           user: pr.user.login,
           title: pr.title,
           number: pr.number,
           url: pr.html_url,
-        });
+        };
       });
-    });
   }
 
   async getIssueLabels(issueNumber) {
-    return new Promise((resolve, reject) => {
-      this.github.issues.getIssueLabels({ ...this.defaultOptions, number: issueNumber }, (err, labels) => {
-        if (err) {
-          return reject(err);
-        }
-
-        return resolve(labels);
-      });
-    });
+    return this.github.issues
+      .getIssueLabels({ ...this.defaultOptions, number: issueNumber })
+      .then(({ data: issues }) => issues);
   }
 
   // convert query object to a string in the format: searchProperty1:searchValue1 [searchPropertyN:searchValueN]
   formatSearchString(query) {
     let q = `repo:${this.defaultOptions.owner}/${this.defaultOptions.repo}`;
+
     for (let key in query) {
       if (query.hasOwnProperty(key)) {
         q += ` ${key}:\"${query[key]}\"`;
@@ -87,75 +71,62 @@ export default class GithubAPI {
   async searchIssues(query) {
     // the search string takes the format: searchProperty1:searchValue1 [searchPropertyN:searchValueN]
     const q = this.formatSearchString(query);
-
-    return new Promise((resolve, reject) => {
-      let allIssues = [];
-      let _this = this;
-
-      _this.github.search.issues({ per_page: 100, q }, function getIssues(err, issues) {
-        if (err) {
-          return reject(err);
-        }
-
-        allIssues = allIssues.concat(
-          issues.items.map((issue) => ({
-            date: issue.closed_at,
-            user: issue.user.login,
-            title: issue.title,
-            labels: issue.labels,
-            number: issue.number,
-            url: issue.html_url,
-          }))
-        );
-
-        if(_this.github.hasNextPage(issues)) {
-          _this.github.getNextPage(issues, getIssues);
-        } else {
-          return resolve(allIssues);
-        }
+    const allIssues = [];
+    const concatAndPage = response => {
+      response.data.items.forEach((issue) => {
+        allIssues.push({
+          date: issue.closed_at,
+          user: issue.user.login,
+          title: issue.title,
+          labels: issue.labels,
+          number: issue.number,
+          url: issue.html_url,
+        });
       });
-    });
+
+      if (this.github.hasNextPage(response)) {
+        return this.github.getNextPage(response).then(concatAndPage);
+      } else {
+        return allIssues;
+      }
+    };
+
+    return this.github.search.issues({ per_page: 100, q }).then(concatAndPage);
   }
 
   async getCommitsFromPullRequest(prNumber) {
-    return new Promise((resolve, reject) => {
-      this.github.pullRequests.getCommits({ ...this.defaultOptions, number: prNumber, per_page: 100 }, (err, commits) => {
-        if (err) {
-          return reject(err);
-        }
-
-        return resolve(commits.map((c) => c.sha));
+    return this.github.pullRequests
+      .getCommits({
+        ...this.defaultOptions,
+        number: prNumber,
+        per_page: 100,
+      })
+      .then(({ data: commits }) => {
+        return commits.map(c => c.sha);
       });
-    });
   }
 
   async getCommitsFromRepo(query = {}) {
-    return new Promise((resolve, reject) => {
-      let allCommits = [];
-      let _this = this;
-
-      _this.github.repos.getCommits({ ...this.defaultOptions, ...query }, function getCommits(err, commits) {
-        if (err) {
-          return reject(err);
-        }
-
-        allCommits = allCommits.concat(
-          commits.map((commit) => ({
-            date: commit.commit.author.date, // some heirarchy
-            sha: commit.sha,
-            user: commit.author ? commit.author.login : undefined,
-            userName: commit.commit.author.name,
-            message: commit.commit.message,
-            url: commit.html_url,
-          }))
-        );
-
-        if (_this.github.hasNextPage(commits)) {
-          _this.github.getNextPage(commits, getCommits);
-        } else {
-          return resolve(allCommits);
-        }
+    const allCommits = [];
+    const concatAndPage = response => {
+      response.data.forEach((commit) => {
+        allCommits.push({
+          date: commit.commit.author.date, // some heirarchy
+          sha: commit.sha,
+          user: commit.author ? commit.author.login : undefined,
+          userName: commit.commit.author.name,
+          message: commit.commit.message,
+          url: commit.html_url,
+        });
       });
-    });
+
+      if (this.github.hasNextPage(response)) {
+        return this.github.getNextPage(response).then(concatAndPage);
+      } else {
+        return allCommits;
+      }
+    };
+
+    return this.github.repos.getCommits({ ...this.defaultOptions, ...query }).then(concatAndPage);
   }
 };
