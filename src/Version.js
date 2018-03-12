@@ -503,7 +503,7 @@ export default class Version {
     const spinner = ora("Getting pull request number from environment").start();
     const number = Utils.getPullRequestNumber();
 
-    if (number) {
+    if (number && number.match(/^\d+$/)) {
       spinner.succeed();
       debug.info(`Found PR #${number}`)
     } else {
