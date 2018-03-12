@@ -43,13 +43,14 @@ const hasRequiredFlags = cli.flags.bump || cli.flags.changelog;
 const packageOptions = Utils.getOptionsFromFile("./package.json");
 const configOptions = packageOptions.gsv || Utils.getOptionsFromFile("./gsv.json") || Utils.getOptionsFromFile("./.gsvrc");
 
-if (!configOptions || !(configOptions.majorLabel && configOptions.minorLabel && configOptions.patchLabel)) {
+if (!configOptions || !(configOptions.majorLabel && configOptions.minorLabel && configOptions.patchLabel && configOptions.internalLabel)) {
   console.error(`Must specify version label config options in .gsvrc, gsv.json file, or a gsv package.json entry.
     Ex:
     {
       "majorLabel": "Version: Major",
       "minorLabel": "Version: Minor",
-      "patchLabel": "Version: Patch"
+      "patchLabel": "Version: Patch",
+      "internalLabel": "No version: Internal"
     }
   `);
   process.exit(1);
