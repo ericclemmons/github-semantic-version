@@ -25,6 +25,7 @@ export default class Version {
       minorLabel: "Version: Minor",
       patchLabel: "Version: Patch",
       internalLabel: "No version: Internal",
+      abortOnMissingLabel: false,
       ...config,
     };
     this.options = {
@@ -70,13 +71,16 @@ export default class Version {
     const pr = Utils.getLastPullRequest();
 
     if (!pr) {
-      debug.warn(`Only commits found. Defaulting to ${Version.INCREMENT_PATCH}.`);
       const commitSHA = Utils.getLastCommit();
+      const commit = await this.getGithubAPI().getCommit(commitSHA);
 
-      // get the last commit from github
-      const githubapi = this.getGithubAPI();
-      const commit = await githubapi.getCommit(commitSHA);
-      commit.increment = Version.INCREMENT_PATCH;
+      if (this.config.abortOnMissingLabel) {
+        debug.warn(`Only commits found. Aborting release based on config.`);
+        commit.increment = Version.NO_INCREMENT;
+      } else {
+        debug.warn(`Only commits found. Defaulting to ${Version.INCREMENT_PATCH}.`);
+        commit.increment = Version.INCREMENT_PATCH;
+      }
 
       return commit;
     }
@@ -90,24 +94,24 @@ export default class Version {
     const prDetails = await githubapi.getPullRequest(number);
     prDetails.labels = await githubapi.getIssueLabels(number);
 
-    if (!prDetails.labels) {
+    if (prDetails.labels) {
+      const increment = this.getIncrementFromIssueLabels(prDetails);
+
+      if (increment) {
+        debug.info(`Found ${increment} label on PR #${number}.`);
+        prDetails.increment = increment;
+
+        return prDetails;
+      }
+    }
+
+    if (this.config.abortOnMissingLabel) {
+      debug.warn(`No labels found on PR #${number}. Aborting release based on config.`);
+      prDetails.increment = Version.NO_INCREMENT;
+    } else {
       debug.warn(`No labels found on PR #${number}. Defaulting to ${Version.INCREMENT_PATCH}.`);
       prDetails.increment = Version.INCREMENT_PATCH;
-
-      return prDetails;
     }
-
-    const increment = this.getIncrementFromIssueLabels(prDetails);
-
-    if (increment) {
-      debug.info(`Found ${increment} label on PR #${number}.`);
-      prDetails.increment = increment;
-
-      return prDetails;
-    }
-
-    debug.warn(`No labels found on PR #${number}. Defaulting to ${Version.INCREMENT_PATCH}.`);
-    prDetails.increment = Version.INCREMENT_PATCH;
 
     return prDetails;
   }
