@@ -2,8 +2,6 @@
 
 import meow from "meow";
 import path from "path";
-import fs from "fs-extra";
-
 import Utils from "./Utils";
 import Version from "./Version";
 

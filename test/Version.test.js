@@ -4,6 +4,6 @@ import Version from "../src/Version";
 
 describe("Version", function() {
   it("should exist", function() {
-    expect(Version).toExist();
+    expect(Version).toBeDefined();
   });
 });
