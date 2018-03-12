@@ -31,6 +31,8 @@ export default class Utils {
       process.env.CIRCLE_BRANCH
       ||
       process.env.TRAVIS_BRANCH
+      ||
+      process.env.BUILDKITE_BRANCH
     );
 
     if (branch) {
@@ -42,6 +44,18 @@ export default class Utils {
     const [ _, name ] = headContents.match(/ref: refs\/heads\/([^\n]+)/) || [];
 
     return name;
+  }
+
+  static getPullRequestNumber() {
+    return (
+      process.env.PULL_REQUEST
+      ||
+      process.env.CIRCLE_PR_NUMBER
+      ||
+      process.env.TRAVIS_PULL_REQUEST
+      ||
+      process.env.BUILDKITE_PULL_REQUEST
+    );
   }
 
   static getCommitRange() {

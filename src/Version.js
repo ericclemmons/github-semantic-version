@@ -498,4 +498,38 @@ export default class Version {
       }
     }
   }
+
+  async check() {
+    const spinner = ora("Getting pull request number from environment").start();
+    const number = Utils.getPullRequestNumber();
+
+    if (number) {
+      spinner.succeed();
+      debug.info(`Found PR #${number}`)
+    } else {
+      spinner.fail();
+
+      throw new Error("PR number could not be found within env vars");
+    }
+
+    const checkSpinner = ora("Checking for required labels").start();
+    const labels = await this.getGithubAPI().getIssueLabels(number);
+
+    if (!labels.length) {
+      checkSpinner.fail();
+
+      throw new Error("No labels found on the pull request");
+    }
+
+    const foundLabel = await this.getIncrementFromIssueLabels({ labels });
+
+    if (!foundLabel) {
+      checkSpinner.fail();
+
+      throw new Error(`Required label not found, must be one of: ${Object.keys(this.incrementMap).join(', ')}`);
+    }
+
+    checkSpinner.succeed();
+    debug.info(`Found label "${foundLabel}" on PR`);
+  }
 };
