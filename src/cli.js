@@ -17,6 +17,7 @@ const cli = meow(`
     --publish     Commits and pushes the changes to the repo, AND publishes the latest to NPM.
     --branch      (Default: master) Release branch, others are ignored.
     --force       By default, --bump and --changelog only work in CI environment. Override this only if you know what you're doing!
+    --check       Check and validate a pull request has an associated label.
     --dry-run     Perform a dry-run without writing, commiting, pushing, or publishing.
 
     debug:        Prepend DEBUG=github-semantic-version:* to the github-semantic-version command.
@@ -64,11 +65,13 @@ const versionOptions = {
 };
 
 // run release only in CI environment. don't run complete changelog generation in CI.
-if (validEnvironment && hasRequiredFlags || cli.flags.init) {
+if (validEnvironment && hasRequiredFlags || cli.flags.init || cli.flags.check) {
   const version = new Version(versionOptions, cli.flags);
 
   if (cli.flags.init) {
     version.refresh();
+  } else if (cli.flags.check) {
+    version.check();
   } else {
     version.release();
   }
