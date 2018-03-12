@@ -11,12 +11,13 @@ import GithubAPI from "./Github";
 export default class Version {
   static defaultOptions = {
     branch: "master",
-  }
+  };
 
   static INCREMENT_MAJOR = "major";
   static INCREMENT_MINOR = "minor";
   static INCREMENT_PATCH = "patch";
   static NO_INCREMENT = "none";
+  static RELEASED = "released";
 
   constructor(config, options) {
     this.config = {
@@ -25,9 +26,12 @@ export default class Version {
       minorLabel: "Version: Minor",
       patchLabel: "Version: Patch",
       internalLabel: "No version: Internal",
+      releasedLabel: "Released",
       abortOnMissingLabel: false,
+      addReleasedLabelOnSuccess: false,
       ...config,
     };
+
     this.options = {
       ...Version.defaultOptions,
       ...options,
@@ -38,6 +42,7 @@ export default class Version {
       [this.config.minorLabel]: Version.INCREMENT_MINOR,
       [this.config.patchLabel]: Version.INCREMENT_PATCH,
       [this.config.internalLabel]: Version.NO_INCREMENT,
+      [this.config.releasedLabel]: Version.RELEASED,
     };
 
     const branch = Utils.getBranch();
@@ -92,6 +97,7 @@ export default class Version {
   async getIncrementFromPullRequest(number) {
     const githubapi = this.getGithubAPI();
     const prDetails = await githubapi.getPullRequest(number);
+
     prDetails.labels = await githubapi.getIssueLabels(number);
 
     if (prDetails.labels) {
@@ -121,6 +127,13 @@ export default class Version {
 
     spinners.push(ora("Getting last change and determining the current version").start());
     const lastChange = await this.getLastChangeWithIncrement();
+
+    // Exit if already released
+    if (lastChange.increment === Version.RELEASED) {
+      spinners[0].succeed();
+      debug.warn(`Found released label. Aborting as this change has already been released.`);
+      return false;
+    }
 
     // Exit if using an internal label
     if (lastChange.increment === Version.NO_INCREMENT) {
@@ -293,14 +306,18 @@ export default class Version {
   }
 
   getIncrementFromIssueLabels(issue) {
-    const regex = new RegExp(`^${this.config.majorLabel}|^${this.config.minorLabel}|^${this.config.patchLabel}|^${this.config.internalLabel}`);
+    const regex = new RegExp(`^${this.config.majorLabel}|^${this.config.minorLabel}|^${this.config.patchLabel}|^${this.config.internalLabel}|^${this.config.releasedLabel}`);
+
     // commits won't have labels property
-    return issue.labels ? issue.labels
+    if (!issue.labels) {
+      return null;
+    }
+
+    return issue.labels
       .map((label) => label.name)
       .filter((name) => name.match(regex))
       .map((increment) => this.incrementMap[increment])
-      .shift()
-      : undefined;
+      .shift();
     ;
   }
 
