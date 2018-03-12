@@ -1,5 +1,6 @@
 [
   { "name": "Version: Major", "color": "#993366" },
   { "name": "Version: Minor", "color": "#669933" },
-  { "name": "Version: Patch", "color": "#663399" }
+  { "name": "Version: Patch", "color": "#663399" },
+  { "name": "No version: Internal", "color": "#fbca04" }
 ]

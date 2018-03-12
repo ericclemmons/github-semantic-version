@@ -16,10 +16,15 @@ export default class Version {
   static INCREMENT_MAJOR = "major";
   static INCREMENT_MINOR = "minor";
   static INCREMENT_PATCH = "patch";
+  static NO_INCREMENT = "none";
 
   constructor(config, options) {
     this.config = {
       github: {},
+      majorLabel: "Version: Major",
+      minorLabel: "Version: Minor",
+      patchLabel: "Version: Patch",
+      internalLabel: "No version: Internal",
       ...config,
     };
     this.options = {
@@ -31,6 +36,7 @@ export default class Version {
       [this.config.majorLabel]: Version.INCREMENT_MAJOR,
       [this.config.minorLabel]: Version.INCREMENT_MINOR,
       [this.config.patchLabel]: Version.INCREMENT_PATCH,
+      [this.config.internalLabel]: Version.NO_INCREMENT,
     };
 
     const branch = Utils.getBranch();
@@ -111,6 +117,14 @@ export default class Version {
 
     spinners.push(ora("Getting last change and determining the current version").start());
     const lastChange = await this.getLastChangeWithIncrement();
+
+    // Exit if using an internal label
+    if (lastChange.increment === Version.NO_INCREMENT) {
+      spinners[0].succeed();
+      debug.warn(`Found internal label. Aborting release.`);
+      return false;
+    }
+
     const branch = Utils.getBranch();
     const newVersion = Utils.incrementVersion(lastChange.increment, this.config.version);
     spinners[0].succeed();
@@ -175,6 +189,8 @@ export default class Version {
       Utils.exec(`git tag v${newVersion}`);
       spinners[2].succeed();
     }
+
+    return true;
   }
 
   async publish() {
@@ -273,7 +289,7 @@ export default class Version {
   }
 
   getIncrementFromIssueLabels(issue) {
-    const regex = new RegExp(`^${this.config.majorLabel}|^${this.config.minorLabel}|^${this.config.patchLabel}`);
+    const regex = new RegExp(`^${this.config.majorLabel}|^${this.config.minorLabel}|^${this.config.patchLabel}|^${this.config.internalLabel}`);
     // commits won't have labels property
     return issue.labels ? issue.labels
       .map((label) => label.name)
@@ -314,7 +330,7 @@ export default class Version {
 
       const increment = this.getIncrementFromIssueLabels(issue);
       version = Utils.incrementVersion(increment, version);
-      lines.push(`${Utils.getChangeLogLine(version, issue)}\n`);
+      lines.push(`${Utils.getChangeLogLine(version, issue, increment)}\n`);
       lastEventDate = currentEventDate;
     });
 
@@ -420,9 +436,9 @@ export default class Version {
 
   // meant to be used after a successful CI build.
   async release() {
-    await this.increment();
+    const status = await this.increment();
 
-    if (this.shouldPush) {
+    if (status && this.shouldPush) {
       await this.push();
 
       if (this.shouldPublish) {

@@ -14,13 +14,14 @@
     "startVersion": "2.0.0",
     "majorLabel": "Version: Major",
     "minorLabel": "Version: Minor",
-    "patchLabel": "Version: Patch"
+    "patchLabel": "Version: Patch",
+    "internalLabel": "No version: Internal"
   },
   "scripts": {
     "predist": "rimraf dist",
     "dist": "babel src -d dist",
     "release": "node dist/cli.js --bump --changelog --push --publish",
-    "prepublish": "npm run dist",
+    "prerelease": "npm run dist",
     "test": "mocha",
     "test:watch": "mocha --watch"
   },

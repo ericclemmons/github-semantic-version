@@ -150,17 +150,22 @@ export default class Utils {
     return join(headerLines,"");
   }
 
-  static getChangeLogLine(version, issue) {
+  static getChangeLogLine(version, issue, increment = '') {
     const issueNumber = issue.number ? `[${issue.number}]` : `[${issue.sha.slice(0,7)}]`;
     const issueUrl = `(${issue.url})`;
     const title = `${issue.title ? issue.title : issue.message.replace(/\n/g, " ")}`;
     const user = issue.user ? `(@${issue.user})` : `(${issue.userName})`;
+    const inc = increment || issue.increment || '';
 
-    return `- ${version} - (${issueNumber}${issueUrl}) - ${title} ${user}`;
+    return `- ${inc === 'none' ? '[internal]' : version} - (${issueNumber}${issueUrl}) - ${title} ${user}`;
   }
 
   static incrementVersion(increment, version) {
     const inc = increment || "patch";
+
+    if (inc === 'none') {
+      return version;
+    }
 
     return semver.inc(version, inc);
   }

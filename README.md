@@ -62,6 +62,20 @@ Add your label definitions to a `gsv` section of `package.json`, to a `gsv.json`
 }
 ```
 
+#### Non-version Labels
+
+Sometimes a PR should not increment and publish a new version, for example, when updating dependencies, tests, or docs. To support
+this, a 4th label named `internalLabel` can be used. When this label is found on a PR, it will be skipped.
+
+```json
+"gsv": {
+  "majorLabel": "Version: Major",
+  "minorLabel": "Version: Minor",
+  "patchLabel": "Version: Patch",
+  "internalLabel": "No version: Internal"
+}
+```
+
 ### 4. Add labels to issues
 
 Add one of your _custom defined labels_ to your open PRs:
