@@ -55,6 +55,14 @@ export default class GithubAPI {
       .then(({ data: issues }) => issues);
   }
 
+  async addLabelToIssue(issueNumber, label) {
+    return this.github.issues.addLabels({
+      ...this.defaultOptions,
+      number: issueNumber,
+      labels: [label],
+    });
+  }
+
   // convert query object to a string in the format: searchProperty1:searchValue1 [searchPropertyN:searchValueN]
   formatSearchString(query) {
     let q = `repo:${this.defaultOptions.owner}/${this.defaultOptions.repo}`;

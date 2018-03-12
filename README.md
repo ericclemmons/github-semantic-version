@@ -46,10 +46,12 @@ Add your label definitions to a `gsv` section of `package.json`, to a `gsv.json`
 
 ##### package.json example
 ```json
-"gsv": {
-  "majorLabel": "Version: Major",
-  "minorLabel": "Version: Minor",
-  "patchLabel": "Version: Patch"
+{
+  "gsv": {
+    "majorLabel": "Version: Major",
+    "minorLabel": "Version: Minor",
+    "patchLabel": "Version: Patch"
+  }
 }
 ```
 
@@ -68,11 +70,13 @@ Sometimes a PR should not increment and publish a new version, for example, when
 this, a 4th label named `internalLabel` can be used. When this label is found on a PR, it will be skipped.
 
 ```json
-"gsv": {
-  "majorLabel": "Version: Major",
-  "minorLabel": "Version: Minor",
-  "patchLabel": "Version: Patch",
-  "internalLabel": "No version: Internal"
+{
+  "gsv": {
+    "majorLabel": "Version: Major",
+    "minorLabel": "Version: Minor",
+    "patchLabel": "Version: Patch",
+    "internalLabel": "No version: Internal"
+  }
 }
 ```
 
@@ -175,10 +179,8 @@ Prepend `DEBUG=github-semantic-version:*` to the `github-semantic-version` comma
 ```json
 {
   "scripts": {
-    ...
     "prerelease": "npm run build",
-    "release": "github-semantic-version --bump --changelog --push --publish",
-    ...
+    "release": "github-semantic-version --bump --changelog --push --publish"
   }
 }
 ```
@@ -190,13 +192,10 @@ calculate the package version of a repo. Ex:
 
 ```json
 {
-  ...
   "gsv": {
     "startVersion": "2.5.0",
-    "majorLabel": "Version: Major",
-    ...
-  },
-  ...
+    "majorLabel": "Version: Major"
+  }
 }
 ```
 
@@ -210,14 +209,11 @@ which are options that will be passed to the [Github API](https://www.npmjs.com/
 
 ```json
 {
-  ...
   "gsv": {
     "github": {
       "host": "github.my-GHE-enabled-company.com"
-    },
-    ...
-  },
-  ...
+    }
+  }
 }
 ```
 
@@ -227,14 +223,26 @@ By default, all PRs without a label will default to "patch". If you'd prefer to 
 
 ```json
 {
-  ...
   "gsv": {
-    "abortOnMissingLabel": true,
-    ...
-  },
-  ...
+    "abortOnMissingLabel": true
+  }
 }
 ```
+
+#### addReleasedLabelOnSuccess
+
+Define the `addReleasedLabelOnSuccess` and `releasedLabel` options to add a label to a PR once it has been successfully published.
+
+```json
+{
+  "gsv": {
+    "releasedLabel": "Released",
+    "addReleasedLabelOnSuccess": true
+  }
+}
+```
+
+> The `releasedLabel` defaults to "Released".
 
 ### License
 

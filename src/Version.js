@@ -11,12 +11,13 @@ import GithubAPI from "./Github";
 export default class Version {
   static defaultOptions = {
     branch: "master",
-  }
+  };
 
   static INCREMENT_MAJOR = "major";
   static INCREMENT_MINOR = "minor";
   static INCREMENT_PATCH = "patch";
   static NO_INCREMENT = "none";
+  static RELEASED = "released";
 
   constructor(config, options) {
     this.config = {
@@ -25,9 +26,12 @@ export default class Version {
       minorLabel: "Version: Minor",
       patchLabel: "Version: Patch",
       internalLabel: "No version: Internal",
+      releasedLabel: "Released",
       abortOnMissingLabel: false,
+      addReleasedLabelOnSuccess: false,
       ...config,
     };
+
     this.options = {
       ...Version.defaultOptions,
       ...options,
@@ -38,6 +42,7 @@ export default class Version {
       [this.config.minorLabel]: Version.INCREMENT_MINOR,
       [this.config.patchLabel]: Version.INCREMENT_PATCH,
       [this.config.internalLabel]: Version.NO_INCREMENT,
+      [this.config.releasedLabel]: Version.RELEASED,
     };
 
     const branch = Utils.getBranch();
@@ -92,6 +97,7 @@ export default class Version {
   async getIncrementFromPullRequest(number) {
     const githubapi = this.getGithubAPI();
     const prDetails = await githubapi.getPullRequest(number);
+
     prDetails.labels = await githubapi.getIssueLabels(number);
 
     if (prDetails.labels) {
@@ -117,22 +123,31 @@ export default class Version {
   }
 
   async increment() {
-    const spinners = [];
-
-    spinners.push(ora("Getting last change and determining the current version").start());
+    const spinner = ora("Getting last change and determining the current version").start();
     const lastChange = await this.getLastChangeWithIncrement();
+
+    this.lastChange = lastChange;
+
+    // Exit if already released
+    if (lastChange.increment === Version.RELEASED) {
+      spinner.succeed();
+      debug.warn(`Found released label. Aborting as this change has already been released.`);
+
+      return false;
+    }
 
     // Exit if using an internal label
     if (lastChange.increment === Version.NO_INCREMENT) {
-      spinners[0].succeed();
+      spinner.succeed();
       debug.warn(`Found internal label. Aborting release.`);
+
       return false;
     }
 
     const branch = Utils.getBranch();
     const newVersion = Utils.incrementVersion(lastChange.increment, this.config.version);
-    spinners[0].succeed();
 
+    spinner.succeed();
     debug.info(`Bumping v${this.config.version} with ${lastChange.increment} release...`);
 
     // override the git user/email based on last commit
@@ -159,9 +174,9 @@ export default class Version {
     }
 
     if (!this.options.dryRun) {
-      spinners.push(ora(`Incrementing the version in package.json with ${lastChange.increment}`).start());
+      const publishSpinner = ora(`Incrementing the version in package.json with ${lastChange.increment}`).start();
       Utils.exec(`npm version ${lastChange.increment} --no-git-tag-version`, { stdio: "ignore" });
-      spinners[1].succeed();
+      publishSpinner.succeed();
     } else {
       debug.warn(`[DRY RUN] bumping package version with ${lastChange.increment}`);
     }
@@ -187,11 +202,11 @@ export default class Version {
     }
 
     if (this.shouldPush && !this.options.dryRun) {
-      spinners.push(ora("Committing the changes and tagging a new version").start());
+      const pushSpinner = ora("Committing the changes and tagging a new version").start();
       debug.info(`Committing the current changes and tagging new version`);
       Utils.exec(`git commit -m "Automated release: v${newVersion}\n\n[ci skip]"`);
       Utils.exec(`git tag v${newVersion}`);
-      spinners[2].succeed();
+      pushSpinner.succeed();
     }
 
     return true;
@@ -293,14 +308,18 @@ export default class Version {
   }
 
   getIncrementFromIssueLabels(issue) {
-    const regex = new RegExp(`^${this.config.majorLabel}|^${this.config.minorLabel}|^${this.config.patchLabel}|^${this.config.internalLabel}`);
+    const regex = new RegExp(`^${this.config.majorLabel}|^${this.config.minorLabel}|^${this.config.patchLabel}|^${this.config.internalLabel}|^${this.config.releasedLabel}`);
+
     // commits won't have labels property
-    return issue.labels ? issue.labels
+    if (!issue.labels) {
+      return null;
+    }
+
+    return issue.labels
       .map((label) => label.name)
       .filter((name) => name.match(regex))
       .map((increment) => this.incrementMap[increment])
-      .shift()
-      : undefined;
+      .shift();
     ;
   }
 
@@ -438,17 +457,37 @@ export default class Version {
     spinner.succeed();
   }
 
+  async finish() {
+    const { lastChange } = this;
+    const { addReleasedLabelOnSuccess, releasedLabel } = this.config;
+
+    if (addReleasedLabelOnSuccess && lastChange && lastChange.number && !this.options.dryRun) {
+      const labelSpinner = ora("Adding released label to PR").start();
+      debug.info(`Adding label "${releasedLabel}" to PR #${number}.`);
+
+      await this.getGithubAPI().addLabelToIssue(lastChange.number, releasedLabel);
+
+      labelSpinner.succeed();
+    }
+  }
+
   // meant to be used after a successful CI build.
   async release() {
     const status = await this.increment();
 
-    if (status && this.shouldPush) {
+    if (!status) {
+      return;
+    }
+
+    if (this.shouldPush) {
       await this.push();
 
       if (this.shouldPublish) {
         await this.publish();
       }
     }
+
+    await this.finish();
   }
 
   // meant to be used as a one off refresh of the changelog generation and version calculation
