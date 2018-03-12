@@ -207,6 +207,14 @@ export default class Version {
       pushSpinner.succeed();
     }
 
+    if (this.config.addReleasedLabelOnSuccess && lastChange.number && !this.options.dryRun) {
+      const { releasedLabel } = this.config;
+      const labelSpinner = ora("Adding released label to PR").start();
+      debug.info(`Adding label "${releasedLabel}" to PR #${number}.`);
+      await this.getGithubAPI().addLabelToIssue(lastChange.number, releasedLabel);
+      labelSpinner.succeed();
+    }
+
     return true;
   }
 
