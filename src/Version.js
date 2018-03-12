@@ -126,6 +126,8 @@ export default class Version {
     const spinner = ora("Getting last change and determining the current version").start();
     const lastChange = await this.getLastChangeWithIncrement();
 
+    this.lastChange = lastChange;
+
     // Exit if already released
     if (lastChange.increment === Version.RELEASED) {
       spinner.succeed();
@@ -205,14 +207,6 @@ export default class Version {
       Utils.exec(`git commit -m "Automated release: v${newVersion}\n\n[ci skip]"`);
       Utils.exec(`git tag v${newVersion}`);
       pushSpinner.succeed();
-    }
-
-    if (this.config.addReleasedLabelOnSuccess && lastChange.number && !this.options.dryRun) {
-      const { releasedLabel } = this.config;
-      const labelSpinner = ora("Adding released label to PR").start();
-      debug.info(`Adding label "${releasedLabel}" to PR #${number}.`);
-      await this.getGithubAPI().addLabelToIssue(lastChange.number, releasedLabel);
-      labelSpinner.succeed();
     }
 
     return true;
@@ -463,17 +457,37 @@ export default class Version {
     spinner.succeed();
   }
 
+  async finish() {
+    const { lastChange } = this;
+    const { addReleasedLabelOnSuccess, releasedLabel } = this.config;
+
+    if (addReleasedLabelOnSuccess && lastChange && lastChange.number && !this.options.dryRun) {
+      const labelSpinner = ora("Adding released label to PR").start();
+      debug.info(`Adding label "${releasedLabel}" to PR #${number}.`);
+
+      await this.getGithubAPI().addLabelToIssue(lastChange.number, releasedLabel);
+
+      labelSpinner.succeed();
+    }
+  }
+
   // meant to be used after a successful CI build.
   async release() {
     const status = await this.increment();
 
-    if (status && this.shouldPush) {
+    if (!status) {
+      return;
+    }
+
+    if (this.shouldPush) {
       await this.push();
 
       if (this.shouldPublish) {
         await this.publish();
       }
     }
+
+    await this.finish();
   }
 
   // meant to be used as a one off refresh of the changelog generation and version calculation
