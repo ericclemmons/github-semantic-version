@@ -3,8 +3,9 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## 2018-03-12 - [7.4.0 - current version]
+## 2018-03-12 - [7.5.0 - current version]
 
+- 7.5.0 - ([27](https://github.com/ericclemmons/github-semantic-version/pull/27)) - Add new --check option + BuildKite support (@milesj)
 - 7.4.0 - ([25](https://github.com/ericclemmons/github-semantic-version/pull/25)) - Add new abortOnMissingLabel option (@milesj)
 - 7.3.0 - ([24](https://github.com/ericclemmons/github-semantic-version/pull/24)) - New internal/no release label (@milesj)
 - 7.2.0 - ([23](https://github.com/ericclemmons/github-semantic-version/pull/23)) - Upgrade GitHub API to @octokit. Update dependencies. (@milesj)
@@ -135,6 +136,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## 2015-12-29
 
 - 2.0.1 - ([e6e695c](https://github.com/ericclemmons/github-semantic-version/commit/e6e695cad33e3c9467a682e893398348eeadaaa1)) - Initial commit (@ericclemmons)
+
 
 
 
