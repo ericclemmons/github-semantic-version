@@ -123,29 +123,29 @@ export default class Version {
   }
 
   async increment() {
-    const spinners = [];
-
-    spinners.push(ora("Getting last change and determining the current version").start());
+    const spinner = ora("Getting last change and determining the current version").start();
     const lastChange = await this.getLastChangeWithIncrement();
 
     // Exit if already released
     if (lastChange.increment === Version.RELEASED) {
-      spinners[0].succeed();
+      spinner.succeed();
       debug.warn(`Found released label. Aborting as this change has already been released.`);
+
       return false;
     }
 
     // Exit if using an internal label
     if (lastChange.increment === Version.NO_INCREMENT) {
-      spinners[0].succeed();
+      spinner.succeed();
       debug.warn(`Found internal label. Aborting release.`);
+
       return false;
     }
 
     const branch = Utils.getBranch();
     const newVersion = Utils.incrementVersion(lastChange.increment, this.config.version);
-    spinners[0].succeed();
 
+    spinner.succeed();
     debug.info(`Bumping v${this.config.version} with ${lastChange.increment} release...`);
 
     // override the git user/email based on last commit
@@ -172,9 +172,9 @@ export default class Version {
     }
 
     if (!this.options.dryRun) {
-      spinners.push(ora(`Incrementing the version in package.json with ${lastChange.increment}`).start());
+      const publishSpinner = ora(`Incrementing the version in package.json with ${lastChange.increment}`).start();
       Utils.exec(`npm version ${lastChange.increment} --no-git-tag-version`, { stdio: "ignore" });
-      spinners[1].succeed();
+      publishSpinner.succeed();
     } else {
       debug.warn(`[DRY RUN] bumping package version with ${lastChange.increment}`);
     }
@@ -200,11 +200,11 @@ export default class Version {
     }
 
     if (this.shouldPush && !this.options.dryRun) {
-      spinners.push(ora("Committing the changes and tagging a new version").start());
+      const pushSpinner = ora("Committing the changes and tagging a new version").start();
       debug.info(`Committing the current changes and tagging new version`);
       Utils.exec(`git commit -m "Automated release: v${newVersion}\n\n[ci skip]"`);
       Utils.exec(`git tag v${newVersion}`);
-      spinners[2].succeed();
+      pushSpinner.succeed();
     }
 
     return true;
