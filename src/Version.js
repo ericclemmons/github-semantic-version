@@ -120,8 +120,9 @@ export default class Version {
 
     // Exit if using an internal label
     if (lastChange.increment === Version.NO_INCREMENT) {
-      debug.warn(`Found internal label. Will not release.`);
-      throw new Error('Will not release internal changes.');
+      spinners[0].succeed();
+      debug.warn(`Found internal label. Aborting release.`);
+      return false;
     }
 
     const branch = Utils.getBranch();
@@ -188,6 +189,8 @@ export default class Version {
       Utils.exec(`git tag v${newVersion}`);
       spinners[2].succeed();
     }
+
+    return true;
   }
 
   async publish() {
@@ -433,9 +436,9 @@ export default class Version {
 
   // meant to be used after a successful CI build.
   async release() {
-    await this.increment();
+    const status = await this.increment();
 
-    if (this.shouldPush) {
+    if (status && this.shouldPush) {
       await this.push();
 
       if (this.shouldPublish) {
